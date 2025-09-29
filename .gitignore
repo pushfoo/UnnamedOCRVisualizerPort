@@ -1,0 +1,6 @@
+.scratch/*
+*.bak
+bin/*
+*.love
+*snarf
+*.snarf
