@@ -57,18 +57,6 @@ makeRectPoints = {
 }
 
 
--- function makeRectPoints(left, top, width, height)
---     local bottom = top + height
---     local right = left + width
---     return {
---         left,  top,
---         right, top,
---         right, bottom,
---         left,  bottom
---     }
--- end
-
-
 Rect = {}
 function Rect:new(ltwh)
     local tlwhType = type(ltwh)

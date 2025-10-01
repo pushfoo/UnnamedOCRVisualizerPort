@@ -41,17 +41,12 @@ function makeCells(cellSize)
     local cells = {}
     local half_cell = cellSize / 2
     for y = half_cell * 3, windowHeight - half_cell, cellSize * 1.5 do
-        --[[ Neuroscience tip: we'll use red and green for our axes b/c:
-             1. Blue is very hard for the eye to perceive when "pure" 
-             2. Color mixing in naive RGB space is awful
-        ]]
-        -- local red = (y + cellSize) / windowHeight
         for x = half_cell, windowWidth - half_cell, cellSize * 2 do
             local rectBounds = Rect:new{x, y, cellSize, cellSize}
             local green = (x + cellSize) / windowWidth
             local c = mapper:map(green) 
             local cell = {
-                color = c,--{red, green, 1.0, 1.00},
+                color = c,
                 rect = rectBounds
             }
             table.insert(cells, cell)
