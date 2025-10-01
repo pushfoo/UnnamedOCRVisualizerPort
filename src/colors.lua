@@ -1,26 +1,31 @@
 require("localmath")
 
-GRAY = {0.5, 0.5, 0.5, 1.0}
+function fromLuminance(value, alpha)
+    if alpha == nil then alpha = 1.0 end
+    return {value, value, value, alpha}
+end
+
+GRAY = fromLuminance(0.5)
+WHITE = fromLuminance(1.0)
+
 function mapNormalizedToColor(normValue, useMapping)
     if normValue < 0 then
-        return GRAY 
+        return GRAY
     end
     local mapping = useMapping or DEFAULT_CONF_COLORS
     local n = table.getn(mapping)
     local n_minus = n - 1
-    for i, v in ipairs(mapping) do
-        print(mapping)
-    end
+
     if normValue >= 1.0 then
         return mapping[n]
     end
 
     local index, towardNext = math.modf(1 + normValue * (n - 1))
-    print(index, towardNext)
     local baseColor = mapping[index]
     if towardNext == 0.0 then
         return baseColor
     end
+
     local endColor = mapping[math.min(n, index + 1)]
 
     local result = lerpTable(baseColor, endColor, towardNext)

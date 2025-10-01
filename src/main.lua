@@ -1,22 +1,10 @@
 -- TODO: Use the OOP-style API they added at some point?
--- require("tsv")
 require("fmt")
+require("util")
 require("rect")
 require("colors")
-require("argparsing")
-
--- Return a value as-is
-function passthru(s)
-    return s
-end
-
-
-function doTableShow(t, whichPrint)
-    p = whichPrint or print
-    local joined = fmt.table(t)
-    p(joined)
-end
-
+require("args")
+require("tesseract")
 
 --[[ Make a table of rectangular points using a top-left origin.
 
@@ -44,7 +32,7 @@ function makeCells(cellSize)
         for x = half_cell, windowWidth - half_cell, cellSize * 2 do
             local rectBounds = Rect:new{x, y, cellSize, cellSize}
             local green = (x + cellSize) / windowWidth
-            local c = mapper:map(green) 
+            local c = mapper:map(green)
             local cell = {
                 color = c,
                 rect = rectBounds
@@ -58,6 +46,29 @@ end
 
 state = nil
 
+function renderAsPolygons(tsvData)
+    local cells = {}
+    local mapper = ColorMapper:new()
+    for i, item in ipairs(tsvData) do
+        print(i, item)
+        for k, v in pairs(item) do
+            print(k, v)
+        end
+        local conf = item.conf
+        if conf ~= nil then
+            if conf >= 0 then
+                local normConf = conf / 100
+                local color = mapp
+                local t = {
+                    rect = item.rect,
+                    color = mapper:map(normConf)
+                }
+                table.insert(cells, t)
+            end
+        end
+    end
+    return cells
+end
 
 function showMessage(message)
    local windowWidth, _, _ = love.window.getMode()
@@ -68,26 +79,36 @@ end
 function love.load(args)
     state = {
         image = nil,
-        cells = makeCells(20),
-        message = "These are now color-mapped rectangles (from 0.0 to 1.0)!"
+        cells = nil,
+        -- cells = makeCells(20),
+        message = "", -- "These are now color-mapped rectangles (from 0.0 to 1.0)!",
+        image = nil,
+        tesseract = TesseractRunner:new(),
+        filename = args[1]
     }
-    -- Stubs arg parsing
-    local parser = parse.State:new{args=args}
+    state.image = util.external.load_image(state.filename)
+    local tsvDataRaw = state.tesseract:recognize(state.filename)
+    state.cells = renderAsPolygons(tsvDataRaw)
+    print(string.format("Got %i items", #(state.cells)))
 
-    local n_args = table.getn(args)
-    local message = {}
-    local args_list = nil
 end
 
-WHITE = {1.0, 1.0, 1.0, 1.0}
+function love.update(dt)
+
+end
+
 function love.draw()
     local windowWidth, _, _ = love.window.getMode()
     love.graphics.setColor(WHITE)
-    showMessage(state.message) 
+    local message = state.message
+    if message then
+        showMessage(state.message)
+    end
+    love.graphics.draw(state.image)
     for i, cell in pairs(state.cells) do
         local vertices = cell.rect.points
         love.graphics.setColor(cell.color)
-        love.graphics.polygon("line", vertices) 
+        love.graphics.polygon("line", vertices)
     end
 end
 

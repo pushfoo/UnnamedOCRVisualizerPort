@@ -3,7 +3,7 @@
 ]]
 fmt = {
     --[[ Quote-wrap any item (naively passes to tostring() first).
-    
+
     ]]
     quote = function(anything, quote)
         quote = quote or "\""
@@ -12,17 +12,50 @@ fmt = {
         end
         return string.format("%s%s%s", quote, anything, quote)
     end,
-    --[[ Format a table as a string. ]]
-    table = function(t)
-        if t == nil then return "nil" end
+    -- [[ Format CLI flags. ]]
+    flags = {
+        --[[ Format a name to a short flag by taking the first character.
 
+        IMPORTANT: Assumes the following:
+        - We don't need to case-shift values.
+        - The first char will be valid.
+        ]]
+        short = function(name)
+            return "-" .. string.sub(name, 1, 1)
+        end,
+        --[[ Format a name to a long flag.
+
+        1. Replace all spaces and underscores with "-"
+        2. Lowercase it
+        3. Prefix "--"
+        ]]
+        long = function(name)
+            return "--" .. string.gsub(name, "[_%w]+", "-").lower()
+        end
+    },
+    --[[ Format a table as a string. ]]
+    table = function(t, indent)
+        if t == nil then return "nil" end
+        if indent == nil then indent = "" end
         local parts = {}
         for k, v in ipairs(t) do
-            table.insert(parts, format("    %s=%s", tostring(k), tostrnig(v)))
+            local kString = tostring(k)
+            local vString = nil
+            if type(v) == "table" then
+                vString = fmt.table(v, indent .. "    ")
+            else
+                vString = tostring(v)
+            end
+            local formatted = string.format("    %s=%s", kString, vString)
+            table.insert(parts, formatted)
         end
-        local joined = "{\n" .. table.concat(parts, ",\n") .. "}\n"
+        local joined = "{\n" .. table.concat(parts, ",\n") .. "\n}"
         return joined
     end,
+    --[[ Mnemonic sugar around Lua's weirdly-named string.sub function.
+
+    @param s: The string to get the first char of.
+    ]]
     firstChar = function(s)
        return string.sub(s, 1, 1)
     end,

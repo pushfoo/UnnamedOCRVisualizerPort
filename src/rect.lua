@@ -64,7 +64,7 @@ function Rect:new(ltwh)
         error(string.format("TypeError: must specify x,y,width,height via table, not %s", tostring(tlwhType)))
     end
     local left, top, width, height = unpack(ltwh)
-    print(left, top, width, height)
+    -- print(left, top, width, height)
     local instance = {
         left = left,
         top = top,
@@ -83,7 +83,7 @@ function fmtRectError(name, wrong)
 end
 
 
-function Rect:contains(other) 
+function Rect:contains(other)
     local otherType = type(other)
     if otherType ~= "table" or not isVoLength then
         error(fmtRectError("TypeError", otherType))
@@ -103,7 +103,7 @@ function Rect:contains(other)
     else
         error(fmtRectError("TypeError", otherType))
     end
-   
+
     local oLeft, oTop, oRight, oBottom = useCoords
     return (
         self.left <= oLeft
@@ -112,8 +112,6 @@ function Rect:contains(other)
         and oBottom <= self.bottom
     )
 end
-
-
 
 
 --[[ Objects will serve as globals available on import.

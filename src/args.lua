@@ -1,12 +1,5 @@
-
-make_flags = {
-    short = function(name)
-        return "-" .. string.sub(name, 1, 1)
-    end,
-    long = function(name)
-        return "--" .. string.gsub(name, "[_%w]+", "-")
-    end
-}
+require("fmt")
+require("util")
 
 parse = {}
 
@@ -14,9 +7,9 @@ love.filesystem.setSymlinksEnabled(true)
 parse.file = function(path)
     local info = love.filesystem.getInfo(path, {type="file"})
     if info ~= nil then
-        return path
+        return file
     else
-        return nil 
+        return nil
     end
 end
 
@@ -30,8 +23,6 @@ function parse.State:new(o)
     end
     setmetatable(o, self)
     self.__index = self
-    doTableShow(o)
-    doTableShow(getmetatable(o))
     if o.args == nil then
         error(fmt.errors.required_value({fmt.quote("args")}))
     end
