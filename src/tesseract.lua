@@ -1,3 +1,10 @@
+--[[ Wraps the command-line interface for Tesseract OCR.
+
+See the following to learn more:
+- https://tesseract-ocr.github.io/tessdoc/Command-Line-Usage.html
+- tesseract --help-extra output
+- the comments below
+]]
 require("util")
 require("fmt")
 require("rect")
@@ -5,6 +12,7 @@ require("env")
 require("tsv")
 
 
+-- Converted from the output of tesseract --help-extra
 PAGE_SEGMENTATION_MODE = {
     OSD_ONLY = 0,               --Orientation and script detection (OSD) only.
     AUTO_OSD = 1,               --Automatic page segmentation with OSD.
@@ -19,8 +27,9 @@ PAGE_SEGMENTATION_MODE = {
     SINGLE_CHAR = 10,           --Treat the image as a single character.
     SPARSE_TEXT = 11,           --Sparse text. Find as much text as possible in no particular order.
     SPARSE_TEXT_OSD = 12,       --Sparse text with OSD.
-    RAW_LINE = 13,              --[[ Raw line. Treat the image as a single text line, bypassing hacks that are Tesseract-specific. ]]
+    RAW_LINE = 13,              -- Raw line. Treat the image as a single text line, bypassing hacks that are Tesseract-specific.
 }
+
 
 -- https://tesseract-ocr.github.io/tessdoc/#tesseract-with-lstm
 OCR_ENGINE_MODE = {
@@ -31,14 +40,23 @@ OCR_ENGINE_MODE = {
 }
 
 
--- https://tesseract-ocr.github.io/tessdoc/Command-Line-Usage.html
+--[[ Tesseract runner instance.
+
+Lang will be concatenated with + signs between it per the
+-l flag's documentation. Tesseract is auto-probed yet can
+be overrided. Page segmentation is a bit more complicated
+and may need some automation smarts around it later.
+]]
 TesseractRunner = {
     lang="eng", -- default to English
     page_segementation_mode = PAGE_SEGMENTATION_MODE.AUTO,
     tesseract = env.which("tesseract")
 }
 
+--[[ Class method which probes for the first tesseract in PATH.
 
+Override the value directly via :new{tesseract=} if necessary.
+]]
 function TesseractRunner.getLanguages(executablePath)
     if executablePath == nil then executablePath = "tesseract" end
     local linesTable = env.run.linesTable(executablePath .. " --list-langs", 1)
@@ -47,55 +65,55 @@ end
 
 
 function TesseractRunner:new(o)
-    o = o or {}
-    setmetatable(o, self)
-    self.__index = self
+    o = super(self, o)
+    if o.lang == nil then
+        o.lang = TesseractRunner.getLanguages(o.tesseract)
+    end
     print(o.tesseract)
     o.version = env.versionFor(o.tesseract)
-    o.languages = TesseractRunner.getLanguages(o.tesseract)
     return o
 end
 
 
+-- Fast and simple psuedo-set.
+local IS_RECT_ARG = {left = true, top=true, width=true, height=true}
 
-IS_RECT_ARG = {left = true, top=true, width=true, height=true}
+--[[ Generate bounding vertices by extracting the output rect data.
 
-
+]]
 function processTesseractTSV(dataString)
     local rawData = readTSVAsTables(dataString)
     headers = rawData.headers
     rows = rawData.rows
     local processed = NiceTable:new()
     for _, row in ipairs(rows) do
-        local newRow = NiceTable:new()
+        --[[ M]]
+        local newRow = NiceTable:new()  -- The row object
+        local rectArgs = NiceTable:new() --
 
-        local rarg = NiceTable:new()
         for i, name in ipairs(header) do
             local value = row[name]
             if IS_RECT_ARG[name] == true then
-                rarg:insert(tonumber(value))
+                rectArgs:insert(tonumber(value))
             elseif name == "text" then
                 newRow[name] = value
             else
                 newRow[name] = tonumber(value)
             end
         end
-        local rect = Rect:new(rarg)
-        newRow.rect = rect
-        -- util.printTable(newRow)
+        newRow.rect = Rect:new(rectArgs)
         processed:insert(newRow)
     end
-    -- util.printTable(processed)
     return processed
 end
 
 
 function TesseractRunner:recognize(path)
-    local cmdRaw = string.format("tesseract %s - -l eng tsv", path)
+    local tesseract = self.tesseract
+    print(self.lang)
+    local languages = table.concat(self.lang, "+")
+    local cmdRaw = string.format(
+        "%s %s - -l %s tsv", self.tesseract, path, languages)
     local rawTSV = env.run.getAllOutput(cmdRaw)
     return processTesseractTSV(rawTSV)
 end
-
-TESSERACT_BG_THREAD = [[
-
-]]

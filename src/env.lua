@@ -1,3 +1,8 @@
+--[[ Helpers for environment probing and execution.
+
+This mostly helps with running Tesseract at the moment.
+]]
+require("util")
 
 env = {
     which = function(cmdname)

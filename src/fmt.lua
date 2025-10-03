@@ -1,9 +1,18 @@
 --[[ Shared formatting helpers.
 
+- quote
+- flag helpers (short and long)
+- table printing
+- error formatting
+- storage for error format prefabs
+
 ]]
+
 fmt = {
     --[[ Quote-wrap any item (naively passes to tostring() first).
 
+    @param anything: a value to quotewrap
+    @param quote: optional quote character (defaults to `"`)
     ]]
     quote = function(anything, quote)
         quote = quote or "\""
@@ -68,8 +77,7 @@ fmt = {
     error = function (errorName, template, args)
         return errorName .. ": " .. string.format(template, args)
     end,
-    --[[ Return a wrapped fmt.error caller which takes a table.
-    ]]
+    -- Return a wrapped fmt.error wrapper which takes a table.
     getErrorTemplater = function(errorName, template)
         local templater = function(args)
             return fmt.error(errorName, template, args)
@@ -80,4 +88,5 @@ fmt = {
     errors = {},
 }
 fmt.errors.required_value = fmt.getErrorTemplater("RequiredValue", "missing required %s= value")
-fmt.errors.index_error = fmt.getErrorTemplater("IndexError", "can't consume %i with current=%i: only have %i args")
+fmt.errors.index_error = fmt.getErrorTemplater("IndexError", "expected %i with current=%i: only have %i args")
+fmt.errors.wrong_size = fmt.getErrorTemplater("WrongSizeError", "expected %s, but got %i")

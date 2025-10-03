@@ -10,7 +10,7 @@ IMPORTANT: This script assumes you love2d in your PATH or aliases!
 
 It works by:
 1. zipping the contents of src into a bin/project.love file
-2. running it with all args passed through 
+2. running it with all args passed through
 
 See:
 
@@ -21,7 +21,8 @@ EOF
 }
 
 # Love2D doesn't appear to have --help support? What?
-if [ "$#" -eq 1 ] && [ "$1" == "--help" ]; then
+N_ARGS="$#"
+if [ $N_ARGS -eq 1 ] && [ "$1" == "--help" ]; then
     usage
 fi
 
@@ -30,5 +31,5 @@ mkdir -p bin
 cd src
 zip -9 -r ../bin/project.love .
 cd ..
-love2d bin/project.love "$@"
+love12.0 bin/project.love "$@"
 

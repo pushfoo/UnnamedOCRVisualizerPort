@@ -5,110 +5,69 @@ require("rect")
 require("colors")
 require("args")
 require("tesseract")
+require("uilayers")
 
---[[ Make a table of rectangular points using a top-left origin.
 
-This is the Love2D convention for coordinates (see
-their wiki page https://love2d.org/wiki/love.graphics).
+AppState = {
+    baseTitle = "UnnamedOCRPreview",
+}
+NO_IMAGE = "(No image)"
 
-  +---------------------> X axis
-  |
-  |         |-- w --|
-  | (x,  y) +-------+ ---
-  |         |       |  |
-  |         |       |  h
-  |         |       |  |
-  |         +-------+ ---
-  v
- Y axis
-]]
-function makeCells(cellSize)
-    -- Last value is a flags table (see https://love2d.org/wiki/love.window.getMode)
-    windowWidth, windowHeight, _ = love.window.getMode()
-    local mapper = ColorMapper:new()
-    local cells = {}
-    local half_cell = cellSize / 2
-    for y = half_cell * 3, windowHeight - half_cell, cellSize * 1.5 do
-        for x = half_cell, windowWidth - half_cell, cellSize * 2 do
-            local rectBounds = Rect:new{x, y, cellSize, cellSize}
-            local green = (x + cellSize) / windowWidth
-            local c = mapper:map(green)
-            local cell = {
-                color = c,
-                rect = rectBounds
-            }
-            table.insert(cells, cell)
-        end
+function AppState:new(o)
+    o = super(self, o)
+    if o.tesseract == nil then
+        o.tesseract = TesseractRunner:new{lang={"eng"}}
     end
-    return cells
+    o.preview = TesseractPreview:new()
+    o.currentTitleParts = {o.baseTitle}
+    o:setStateTitle(NO_IMAGE)
+    return o
 end
 
+function AppState:setStateTitle(parts)
+    if parts == nil then
+        parts = NO_IMAGE
+    end
+    local partsType = type(parts)
+    if partsType == "string" then
+        parts = {parts}
+    elseif partsType ~= "table" then
+        error("TypeError: expected a string or table, not a " .. partsType)
+    end
+
+    local allParts = NiceTable:new()
+    allParts:insert(self.baseTitle)
+    for i, part in ipairs(parts) do
+        allParts:insert(part)
+    end
+    local joined = allParts:concat(" - ")
+    self.titleParts = parts
+    love.window.setTitle(joined)
+end
+
+function AppState:loadFile(maybeFileName)
+    local preview = self.preview
+    if maybeFileName == nil then
+        love.window.showFileDialog("openfile", preview.loadImageCallback)
+    elseif type(maybeFileName) == "string" then
+        preview.loadFile(maybeFileName)
+    end
+end
 
 state = nil
 
-function renderAsPolygons(tsvData)
-    local cells = {}
-    local mapper = ColorMapper:new()
-    for i, item in ipairs(tsvData) do
-        print(i, item)
-        for k, v in pairs(item) do
-            print(k, v)
-        end
-        local conf = item.conf
-        if conf ~= nil then
-            if conf >= 0 then
-                local normConf = conf / 100
-                local color = mapp
-                local t = {
-                    rect = item.rect,
-                    color = mapper:map(normConf)
-                }
-                table.insert(cells, t)
-            end
-        end
-    end
-    return cells
-end
-
-function showMessage(message)
-   local windowWidth, _, _ = love.window.getMode()
-   love.graphics.print(message,
-        (windowWidth / 2) - 180, 0)
-end
-
 function love.load(args)
-    state = {
-        image = nil,
-        cells = nil,
-        -- cells = makeCells(20),
-        message = "", -- "These are now color-mapped rectangles (from 0.0 to 1.0)!",
-        image = nil,
-        tesseract = TesseractRunner:new(),
-        filename = args[1]
-    }
-    state.image = util.external.load_image(state.filename)
-    local tsvDataRaw = state.tesseract:recognize(state.filename)
-    state.cells = renderAsPolygons(tsvDataRaw)
-    print(string.format("Got %i items", #(state.cells)))
-
+    local tesseract  = TesseractRunner:new{lang={"eng"}}
+    state = AppState:new{tesseract=tesseract}
+    local width, height, mode = love.window.getMode()
+    mode.resizable = true
+    love.window.setMode(width, height, mode)
+    state:loadFile()
 end
 
-function love.update(dt)
-
-end
 
 function love.draw()
-    local windowWidth, _, _ = love.window.getMode()
     love.graphics.setColor(WHITE)
-    local message = state.message
-    if message then
-        showMessage(state.message)
-    end
-    love.graphics.draw(state.image)
-    for i, cell in pairs(state.cells) do
-        local vertices = cell.rect.points
-        love.graphics.setColor(cell.color)
-        love.graphics.polygon("line", vertices)
-    end
+    state.preview.layers:draw()
 end
 

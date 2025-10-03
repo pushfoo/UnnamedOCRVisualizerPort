@@ -10,6 +10,24 @@ function NiceTable:new(o)
 end
 
 
+--[[ Currently only used by UI layers; might get removed.
+
+A review of current OOP systems since the last time I
+tried Love2D would help a lot. It looks like there may
+be some innovation since the last time I looked?
+]]
+function super(self, o, parent)
+    if o == nil then o = {} end
+    setmetatable(o, parent or self)
+    self.__index = self
+    return o
+end
+
+--[[ Check if this appears to be an array ]]
+function isNonEmptyArray(t)
+    return type(t) == "table" and #t > 0
+end
+
 util = {
     passthru = function(a) return a end,
     printTable = function(t, printer)

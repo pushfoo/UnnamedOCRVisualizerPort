@@ -1,4 +1,10 @@
 
+
+function isInteger(n)
+    local remainder = math.modf(n, 1)
+    return remainder == 0
+end
+
 --[[ Blend between a and b.
 
 @param a: A value which supports * and + operators.

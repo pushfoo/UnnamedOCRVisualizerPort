@@ -6,8 +6,12 @@ A WIP partial port of an unreleased OCR visualization tool.
 
 So far:
 
-1. [Love2D][] >= 11.5
-2. A source of data (not yet implemented)
+1. [Love2D][] >= 12.0
+   - This is a prerelease version
+   - See [build info](#building-love2d-12)
+2. [Tesseract][] for OCR
+
+[Tesseract]: https://github.com/tesseract-ocr/tesseract
 
 ## Why?
 
@@ -20,7 +24,9 @@ So far:
 
 Goals include:
 
--[ ] [Tesseract][]-style [TSV][] output
+-[X] [Tesseract][]-style [TSV][] output
+ - [X] Minimal color mapping
+ - [X] System filepicker to choose files
 -[ ] Minimal UI:
   -[ ] Mouse-based gestures
   -[ ] Hot keys
@@ -35,30 +41,54 @@ priority given this is a port of an existing tool.
 
 ## How do I use `run.sh`?
 
-### Ubuntu-likes can use the PPA Instead
+**TL;DR:** Install [Love2D][] + [Tesseract][] before `./run.sh`
 
 > [!WARNING]
-> **NEVER** mix Ubuntu packages with Debian! (See [next section](#debian-and-other-appimage-users)
+> Debian is not Ubuntu! (See [next section](#debian-and-other-appimage-users))
 
-Users on Ubuntu and compatible distros can use the [Love2D PPA][]:
+### Build Love2D 12.0's Pre-Release
 
-- Ubuntu
-- Pop!_OS
-- Linux Mint
+Love2D's upcoming 12.0 release offers performance and API improvements even as an unfinished work in progress.
 
-### Debian and Other AppImage Users
+This means you currently have to build it from source to use this project. On Debian, you can use `sudo ./get_deps.sh` to get known build dependencies.
 
-Debian is best served by the Love2D AppImage to [avoid breaking Debian][FrankenDebian].
+On other operating systems or Linux distros, you may need to consult the following:
+* The [Love2D dependencies list][]
+* The relevant documentation for your package manager
+* The [Love2D compilation instructions][]
 
-This script eases file and folder access restrictions on [AppImage][]s.
-Use it as follows after [cloning the repo][]:
+On sufficiently Debian-like Linux, `sudo ./get_deps.sh force` **may** work. However, it's best to double check.
 
-1. `mkdir -p ~/bin`
-2. Download [Love2D][] to `~/bin`
-3. `cd ~/bin`
-4. `ln -s name_of_app_image.file love2d`
-5. `cd ..`
-6. `./run.sh`
+[Love2D dependencies list]: https://github.com/love2d/love?tab=readme-ov-file#dependencies
+[Love2D compilation instructions]: https://github.com/love2d/love?tab=readme-ov-file#compilation
+
+### Add your Love2D v12.0 to `$PATH`
+
+Once you've compiled, find the `build/` folder in the cloned Love2D repo. Then do one of the following to add the new Love2D 12.0 to your `PATH` as `love12.0`
+
+- copy the file to install it
+- link it into a `~/bin` folder
+- alias it in your `.bashrc`
+
+> [!NOTE]
+> You can also skip `./run.sh` and use your own build/runner script.
+
+### Building the `.love` file
+
+The `./run.sh` script auto-packages a `.love` file from
+the source folder.
+
+```shell
+$ ./run.sh
+```
+All arguments after are passed through directly.
+
+### Future Considerations
+
+You'll want to use the [AppImage][] for Love2D 12.0 once it releases, especially on Debian.
+
+This will ensure you avoid creating a [FrankenDebian].
+
 
 [FrankenDebian]: https://wiki.debian.org/DontBreakDebian#Don.27t_make_a_FrankenDebian
 [AppImage]: https://appimage.org/
