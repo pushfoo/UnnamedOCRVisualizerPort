@@ -164,7 +164,7 @@ function TesseractRunner:getWords(path, languages)
     local tesseract = self.tesseract
     local languages = table.concat(self.lang, "+")
     local cmdRaw = string.format(
-         "%s %s - -l %s tsv", self.tesseract, path, languages)
+         "%s %s - -l %s tsv", self.tesseract, util.escapePathSpaces(path), languages)
     -- local cmdRaw = self:formatCommand(path, "tsv", self.lang)
     local rawTSV = env.run.getAllOutput(cmdRaw)
     return processTesseractWordTSV(rawTSV)

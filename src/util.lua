@@ -74,6 +74,9 @@ util = {
             return iterator
         end
     },
+    escapePathSpaces = function(rawPath)
+        return rawPath:gsub(" ", "\\ ")
+    end,
     lastOfString = function(rawString, splitPattern)
         local value = nil
         for v in string.gmatch(rawString, splitPattern) do
