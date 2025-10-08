@@ -1,6 +1,11 @@
 # UnnamedOCRVisualizerPort
 
-A WIP partial port of an unreleased OCR visualization tool.
+A WIP experiment in making a small, portable OCR output visualizer.
+
+| ![Tesseract's eurotext.png](doc/screenshot_eurotext.png) | ![A sha256sum wrapper function with bounding boxes.](doc/screenshot_code.png) |
+| :------------------------------------------------------: | :---------------------------------------------------------------------------: |
+| Tesseract's `eurotext.png`                               | A `sha256sum` wrapper                                                         |
+
 
 ## Requirements
 
@@ -15,6 +20,9 @@ So far:
 
 ## Why?
 
+1. Lua-based applications:
+   - are easier to ship
+   - start and run faster than Python-based[^1] ones
 1. Refresh myself on Lua
 2. See how [Love2D][] has progressed
 
@@ -43,8 +51,8 @@ priority given this is a port of an existing tool.
 
 **TL;DR:** Install [Love2D][] + [Tesseract][] before `./run.sh`
 
-> [!WARNING]
-> Debian is not Ubuntu! (See [next section](#debian-and-other-appimage-users))
+> [!IMPORTANT]
+> VS Code can cause Love2D to launch with no window decorations! See [VS Code Workaround](#vs-code-workaround) for a fix.
 
 ### Build Love2D 12.0's Pre-Release
 
@@ -83,6 +91,22 @@ $ ./run.sh
 ```
 All arguments after are passed through directly.
 
+### VS Code Workaround
+
+On some Linux systems running Wayland, VS Code can cause Love2D to launch with no Window decorations.
+
+Console output will include the following:
+```
+libdecor-gtk-WARNING: Failed to initialize GTK
+Failed to load plugin 'libdecor-gtk.so': failed to init
+No plugins found, falling back on no decorations
+```
+
+As a workaround, you can launch VS Code with the following flags:
+```shell
+code --enable-features=UseOzonePlatform --ozone-platform=wayland
+```
+
 ### Future Considerations
 
 You'll want to use the [AppImage][] for Love2D 12.0 once it releases, especially on Debian.
@@ -94,3 +118,4 @@ This will ensure you avoid creating a [FrankenDebian].
 [AppImage]: https://appimage.org/
 [cloning the repo]: https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository
 
+[^1]: Both CPython and Pillow can be fairly slow.

@@ -2,7 +2,11 @@ require("util")
 require("args")
 require("rect")
 
-function splitLineTSVLine(line)
+
+function splitLineTSVLine(line, sepPattern)
+    sep = sep or "\t"
+    -- local pattern = getNegativeMatchPattern(sep)
+
     columns = NiceTable:new()
     for value in line:gmatch("[^\t]+") do
         columns:insert(value)
@@ -11,41 +15,58 @@ function splitLineTSVLine(line)
 end
 
 
-function readTSVString(stringRaw)
+function readTSVString(stringRaw, config)
+    config = config or {}
+    local sepPattern = config.sepPattern or "[^\t]+"
+    -- This fits the known Tessearct TSV output format despite being technically  "wrong"
+    local eolPattern = config.eolPattern or "[^\r\n]+"
+
     rows = NiceTable:new()
-    for line in stringRaw:gmatch("[^\r\n]+") do
-        columns = splitLineTSVLine(line)
+    for line in stringRaw:gmatch(eolPattern) do
+        columns = splitLineTSVLine(line, sepPattern)
         rows:insert(columns)
     end
     return rows
 end
 
 
-function readTSVAsTables(stringRaw)
+function readTSVAsTables(stringRaw, forceHeader)
     local raw = readTSVString(stringRaw)
-
-    header = raw[1]
+    local header = nil
+    local iterationStart = nil
+    if forceHeader == nil then
+        header = raw[1]
+        iterationStart = 2
+    else
+        header = forceHeader
+        iterationStart = 1
+    end
     local nHeader = table.getn(header)
     local nDataRows = table.getn(raw)
-    local namedRows = {}
+    local namedRows = NiceTable:new()
     local n_items = 0
     for rowIndex = 2,nDataRows do
         local colData = raw[rowIndex]
         local namedTable = {}
-        table.insert(namedRows, namedTable)
         for i = 1,nHeader do
-            local name = tostring(header[i])
+            local name = header[i]
             local data = colData[i]
             namedTable[name] = data
         end
-        table.insert(namedRows, namedTable)
+        namedRows:insert(namedTable)
         n_items = n_items + 1
     end
     -- Lua tables and ipairs aren't Python dicts (ipairs only works on "Array tables")
-    local TSVData = {
-        headers=headers,
+    local structured = {
+        columnOrder=header,
         rows=namedRows,
         n_items = n_items
     }
-    return TSVData
+
+    return structured
 end
+
+function readMakeBox()
+
+end
+

@@ -1,7 +1,7 @@
 --[[ Color-based conversion, textures, and mapping.
 
 ]]
-
+require("util")
 require("localmath")
 
 --[[ Convert a luminance value to a normalized RGBA color.
@@ -12,7 +12,7 @@ If no alpha value is specied, it will default to 1.0.
 @param alpha: An opacity value (1.0 if unspecified)
 ]]
 function fromLuminance(value, alpha)
-    if alpha == nil then alpha = 1.0 end
+    alpha = alpha or 1.0 -- Important: 0.0 is truthy in Lua
     return {value, value, value, alpha}
 end
 
@@ -87,8 +87,7 @@ function makeCheckers(colors, checkerSize)
     graphics.rectangle("fill", checkerSize, checkerSize, totalSize, totalSize, 0, 0)
     graphics.setCanvas()
 
-    local imageData = checkerCanvas:newImageData()
-    checkerImage = graphics.newImage(imageData)
+    local checkerImage = util.graphics.textureFromCanvas(checkerCanvas)
     checkerImage:setWrap("repeat", "repeat")
     checkerImage:setFilter("linear")
     return checkerImage

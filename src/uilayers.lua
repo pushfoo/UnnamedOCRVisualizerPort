@@ -5,28 +5,27 @@ require("rect")
 require("colors")
 require("tesseract")
 
-
-function getScreenSize()
-    local width, height, _ = love.window.getMode()
-    return {width, height}
-end
+local graphics = love.graphics
 
 
-function renderAsPolygons(tsvData)
-    local cells = {}
+--[[ Convert a raw Tesseract TSV to {rect, color} data.
+
+]]
+function getWordPolygonsFromTesseractData(tsvData)
+    local cells = NiceTable:new()
     local mapper = ColorMapper:new()
     for i, item in ipairs(tsvData) do
         local conf = item.conf
-        if conf ~= nil then
-            if conf >= 0 then
-                local normConf = conf / 100
-                local color = mapp
-                local t = {
-                    rect = item.rect,
-                    color = mapper:map(normConf)
-                }
-                table.insert(cells, t)
-            end
+        -- The non-box items are conf == -1
+        if conf and conf >= 0 then
+            local normConf = conf / 100
+            local t = {
+                rect = item.rect,
+                color = mapper:map(normConf),
+                conf = conf,
+                level = item.level
+            }
+            cells:insert(t)
         end
     end
     return cells
@@ -38,22 +37,19 @@ BackgroundLayer = {
     checkerSize = 8
 }
 
+
 function BackgroundLayer:new(o)
     o = super(self, o)
     local checkerSize = o.checkerSize
     local colors = o.colors
-    local totalSize = checkerSize * 2
+    o.totalSize = checkerSize * 2
     o.texture = makeCheckers(colors, checkerSize)
-    o.quad = love.graphics.newQuad(
-        -- top left of screen
+    -- Fit to 1080p as a "good enough" initial allocation
+    o.quad = graphics.newQuad(
         0, 0,
-        -- bottom right + overshoot in case of weird stretchy?
-        -- (may be an illusion, unclear)
         1920 + totalSize, 1080 + totalSize,
-        -- texture size to repeat
-        totalSize, totalSize
+        o.totalSize, o.totalSize
     )
-    o.totalSize = totalSize
     return o
 end
 
@@ -65,11 +61,15 @@ end
 
 
 function BackgroundLayer:draw(size)
-    if size == nil then size = getScreenSize() end
-    local w = size[1]
-    local h = size[2]
+    local w = nil
+    local h = nil
+    if size == nil then
+        w, h = graphics.getDimensions()
+    else
+        w, h = size
+    end
     self:fitToViewport(0,0,w,h)
-    love.graphics.draw(self.texture, self.quad)
+    graphics.draw(self.texture, self.quad)
 end
 
 
@@ -77,8 +77,8 @@ UIImageLayer = {}
 
 function UIImageLayer:new(o)
     o = super(self, o)
-    self.quad = love.graphics.newQuad(0, 0, 0, 0, 0, 0)
-    if o.image ~= nil then
+    self.quad = graphics.newQuad(0, 0, 0, 0, 0, 0)
+    if o.image then
         self:setImage(self.image)
     end
     return o
@@ -89,8 +89,8 @@ UIBBoxLayer = {}
 
 function UIBBoxLayer:new(o)
     o = super(self, o)
-    if o.tesseract == nil then
-        o.tesseract = TesseractRunner:new()
+    if o.runner == nil then
+        o.runner = TesseractRunner:new()
     end
     o.cells = {}
     return o
@@ -98,8 +98,8 @@ end
 
 
 function UIBBoxLayer:renderBBoxes(filename)
-    local tsvDataRaw = self.tesseract:recognize(filename)
-    self.cells = renderAsPolygons(tsvDataRaw)
+    local tsvDataRaw = self.runner:getWords(filename)
+    self.cells = getWordPolygonsFromTesseractData(tsvDataRaw)
 end
 
 
@@ -107,12 +107,12 @@ function UIBBoxLayer:draw()
     if self.cells == nil then
         return
     end
-    for i, cell in ipairs(self.cells) do
+    for _, cell in ipairs(self.cells) do
         local vertices = cell.rect.points
-        love.graphics.setColor(cell.color)
-        love.graphics.polygon("line", vertices)
+        graphics.setColor(cell.color)
+        graphics.polygon("line", vertices)
     end
-    love.graphics.setColor(WHITE)
+    graphics.setColor(WHITE)
 end
 
 
@@ -126,20 +126,27 @@ end
 
 function UIImageLayer:loadImage(filename)
     local image = util.external.load_image(filename)
-    if image ~= nil then
+    if image then
         self:setImage(image)
     end
 end
 
+function UIImageLayer:getImageSize()
+    local dimensions = nil
+    local image = self.texture
+    if image then dimensions = image:getDimensions() end
+    return dimensions
+end
+
 
 function UIImageLayer:draw()
-    if self.image ~= nil then
-        love.graphics.draw(self.image, self.quad)
+    if self.image then
+        graphics.draw(self.image, self.quad)
     end
 end
 
 
-
+--[[ Table with indexing behavior. ]]
 DocumentLayers = {
     __index = table
 }
@@ -153,6 +160,10 @@ function DocumentLayers:new(o)
 end
 
 
+function DocumentLayers:setBaseSize(width, height)
+
+end
+
 function DocumentLayers:get(nameOrIndex)
     local keyType = type(nameOrIndex)
     local result = nil
@@ -165,7 +176,7 @@ function DocumentLayers:get(nameOrIndex)
         index = self.byName[nameOrIndex]
     end
     layerAndName = self.layers[index]
-    if layerAndName ~= nil then
+    if layerAndName then
         result = layerAndName.layer
     end
     return result
@@ -174,66 +185,71 @@ end
 
 function DocumentLayers:add(name, layer)
     local byName = self.byName
-    if byName[name] ~= nil then
+    if byName[name] then
         error(string.format("KeyError: key %s already exists", quote(name)))
     end
     self.layers:insert({name=name, layer=layer})
     self.byName[name] = #(self.layers)
+    return layer
 end
 
 
 function DocumentLayers:draw()
-    for i, layerData in ipairs(self.layers) do
+    for _, layerData in ipairs(self.layers) do
         local name = layerData.name
         local layer = layerData.layer
-        if layer ~= nil then
+        if layer then
             layer:draw()
         end
     end
 end
 
 
-TesseractPreview = {}
+TesseractPreview = {
+
+}
+
 -- NOTE: currently *requires* an AppState reference
 function TesseractPreview:new(o)
     o = super(self, o)
-    o.layers = DocumentLayers:new()
-    if o.tesseract == nil then
-        o.tesseract = TesseractRunner:new{lang={"eng"}}
+    local layers = DocumentLayers:new()
+    o.layers = layers
+    if o.runner == nil then
+        o.runner = TesseractRunner:new{lang={"eng"}}
     end
-    local layers = o.layers
-    layers:add("checkers", BackgroundLayer:new())
-    layers:add("image", UIImageLayer:new())
-    layers:add("bbox", UIBBoxLayer:new{tesseract=o.tesseract})
+    o.checkers = layers:add("checkers", BackgroundLayer:new())
+    o.image =    layers:add("image",    UIImageLayer:new())
+    o.bbox =     layers:add("bbox",     UIBBoxLayer:new{runner=o.runner})
+    o.chars =    layers:add("chars",    UIBBoxLayer:new{runner=o.runner})
+
     o.filename = nil
     o.loadImageCallback = function(files, filters, maybeError)
         local filesType = type(files)
         local file = nil
         if filesType == "string" then
             file = filesType
-        elseif filesType == "table" then
+        elseif filesType == "table" and #files then
             file = files[1]
         end
-        o:loadImage(file)
-
+        if file then
+            o:loadImage(file)
+        end
     end
     return o
 end
 
 
 function TesseractPreview:loadImage(file)
-    local layers = self.layers
-    local bbox = layers:get("bbox")
-    bbox:renderBBoxes(file)
-    local image = layers:get("image")
-    image:loadImage(file)
+    self.image:loadImage(file)
+
+    self.bbox:renderBBoxes(file)
     local gotN = 0
-    local cells = bbox.cells
-    if isNonEmptyArray(cells) then
+    local cells = self.bbox.cells
+    if util.is.NonEmptyArray(cells) then
         gotN = #cells
     end
     self.filename = file
-    -- TODO: Fix this ugly trick
-    state:setStateTitle(file)
+    local filenameAlone = util.lastOfString(file, "[^/]+")
+    state:setStateTitle(filenameAlone)
     print(string.format("Got %i items", gotN))
 end
