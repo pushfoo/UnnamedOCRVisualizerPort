@@ -2,13 +2,13 @@
 
 This mostly helps with running Tesseract at the moment.
 ]]
+require("structures")
 require("util")
 
 env = {
     which = function(cmdname)
         local handle = io.popen("which " .. cmdname)
-        local result = handle:read()
-        return result
+        return handle:read()
     end,
     versionFor = function(cmdname)
         local handle = io.popen(cmdname .. " --version")
@@ -17,7 +17,7 @@ env = {
     end,
     run = {
         --[[ Get an iterator, optionally skipping the first skipN lines. ]]
-        linesIterator = function(cmd, skipN)
+        linesIterator = function(cmd, config)
             local handle = io.popen(cmd)
             local linesIt = util.functional.skipN(handle:lines(), skipN)
             return linesIt
@@ -36,5 +36,3 @@ env = {
         end
     }
 }
-
-

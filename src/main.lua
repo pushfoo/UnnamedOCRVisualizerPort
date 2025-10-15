@@ -6,12 +6,15 @@ require("colors")
 require("args")
 require("tesseract")
 require("uilayers")
+require("structures")
 
 
+NO_IMAGE = "(No image)"
 AppState = {
     baseTitle = "UnnamedOCRPreview",
+    noDocument = NO_IMAGE
 }
-NO_IMAGE = "(No image)"
+
 
 function AppState:new(o)
     o = super(self, o)
@@ -20,34 +23,33 @@ function AppState:new(o)
         o.runner = TesseractRunner:new{lang={"eng"}}
     end
     o.preview = TesseractPreview:new{runner=o.runner}
-    o.currentTitleParts = {o.baseTitle}
+    o.currentTitleParts = Stack:new()
+    o.titleCallback = nil
     o.zoom = 1.0
     o.zoomScaleRate = 1.0
-    o.baseTransform = love.math.newTransform()
-    o.currentTransform = love.math.newTransform()
-    o:setStateTitle(NO_IMAGE)
+    local newTransform = love.math.newTransform
+    o.baseTransform = newTransform()
+    o.currentTransform = newTransform()
+    o:setStateTitle()
     return o
 end
 
-function AppState:setStateTitle(parts)
-    if parts == nil then
-        parts = NO_IMAGE
+function tableWrapString(tableOrString)
+    local tType = type(tableOrString)
+    if tType == "string" then
+        return {tableOrString}
+    elseif tType == "table" then
+        return tableOrString
     end
+    error("TypeError: expected a string or table, not a " .. tType)
+end
 
-    local partsType = type(parts)
-    if partsType == "string" then
-        parts = {parts}
-    elseif partsType ~= "table" then
-        error("TypeError: expected a string or table, not a " .. partsType)
-    end
-
-    local allParts = NiceTable:new()
-    allParts:insert(self.baseTitle)
-    for i, part in ipairs(parts) do
-        allParts:insert(part)
-    end
-    local joined = allParts:concat(" - ")
-    self.titleParts = parts
+function AppState:setStateTitle(rawParts)
+    local parts = NiceTable:new{
+        self.baseTitle,
+        unpack(tableWrapString(rawParts or self.noDocument))
+    }
+    local joined = parts:concat(" - ")
     love.window.setTitle(joined)
 end
 
@@ -72,17 +74,17 @@ function love.wheelmoved(x, y)
         factor = factor - scaled
     elseif y > 0 then
         factor =  factor + scaled
+    elseif x == 0 then
+        print("warning: got unexpected scale factorx x=0, y=0")
+    else
+        print("ignoring: sideways scroll x=", tostring(x))
     end
     state.currentTransform:scale(factor)
 end
 
 
-
 function love.load(args)
-    -- local supported_formats = love.graphics.getTextureFormats({canvas=true})
-    -- for i, fmt in pairs(supported_formats) do
-    --     print(i, fmt)
-    -- end
+
     local runner = TesseractRunner:new{lang={"eng"}}
     state = AppState:new{runner=runner}
     local width, height, mode = love.window.getMode()

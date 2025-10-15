@@ -6,6 +6,7 @@ See the following to learn more:
 - the comments below
 ]]
 require("util")
+require("structures")
 require("fmt")
 require("rect")
 require("env")
@@ -90,7 +91,8 @@ local IS_RECT_ARG = {left = true, top=true, width=true, height=true}
 
 ]]
 function processTesseractWordTSV(dataString)
-    local rawData = readTSVAsTables(dataString)
+    -- local rawData = readTSVAsTables(dataString)
+    local rawData = genericReaders.tsv:readString(dataString)
     for k, v in pairs(rawData) do
         print(k, v)
     end
@@ -145,11 +147,12 @@ function TesseractRunner:getCharBoxes(path, imSize, languages)
     local cmdRaw = string.format(
         "%s %s - -l %s makeboxes", self.tesseract, path, languages)
     rawTSV = env.run.getAllOutput(cmdRaw)
-    local boxData = readTSVAsTables(rawTSV, CHAR_BOX_HEADERS)
+    local boxData = defaultReaders.tsv:readTSVAsTables(rawTSV, CHAR_BOX_HEADERS)
     local columnOrder = boxData.columnOrder
     local asTopLeftOrigin = NiceTable:new()
     for _, row in ipairs(boxData) do
         local charData = {char=row.char}
+        -- Flip the y axis because chars are bottom-relative for historical reasons
         charData.rect = Rect:new{
             left, height - top,
             right, height - bottom

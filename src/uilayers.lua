@@ -1,6 +1,7 @@
 --[[ UI layers for preview of bboxes. ]]
 require("fmt")
 require("util")
+require("structures")
 require("rect")
 require("colors")
 require("tesseract")
@@ -57,6 +58,10 @@ end
 function BackgroundLayer:fitToViewport(left, top, bottom, right)
     local totalSize = self.totalSize
     self.quad:setViewport(left, top, bottom, right, totalSize, totalSize)
+end
+
+function BackgroundLayer:setZoom(zoomQuantity)
+
 end
 
 
@@ -161,7 +166,7 @@ end
 
 
 function DocumentLayers:setBaseSize(width, height)
-
+    --
 end
 
 function DocumentLayers:get(nameOrIndex)

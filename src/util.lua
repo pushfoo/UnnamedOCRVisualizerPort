@@ -1,34 +1,5 @@
+require("structures")
 require("fmt")
-
-table.extend = function(dest, t)
-    for i, value in ipairs(t) do
-        table.insert(dest, value)
-    end
-end
-
--- A table with support for tableName:insert, etc.
-NiceTable = {
-    __index = table,
-}
-function NiceTable:new(o)
-    o = o or {}
-    setmetatable(o, self)
-    return o
-end
-
-
---[[ Currently only used by UI layers; might get removed.
-
-A review of current OOP systems since the last time I
-tried Love2D would help a lot. It looks like there may
-be some innovation since the last time I looked?
-]]
-function super(self, o, parent)
-    if o == nil then o = {} end
-    setmetatable(o, parent or self)
-    self.__index = self
-    return o
-end
 
 
 util = {
