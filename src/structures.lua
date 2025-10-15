@@ -4,7 +4,7 @@
 * NewTable
 * Stack
 ]]
-
+require("typechecks")
 
 --[[ Temp OOP helper.
 
@@ -20,12 +20,36 @@ function super(self, o, parent)
 end
 
 
--- A table with support for tableName:insert, etc.
-NiceTable = setmetatable({}, {__index = table})
-NiceTable.__index = NiceTable
 
-function NiceTable:new(o)
-    return setmetatable(o or {} , NiceTable)
+Class = setmetatable({
+        metaOnly = function(t, mt)
+            t = t or {}
+            mt = mt or {__index = table}
+            t = setmetatable(t, mt)
+            t.__index = t
+            return t
+        end,
+        createSubtype = function(core, parent)
+
+        end
+    }, {
+        -- Are we a function? Close enough.
+        __call = function(self, t, mt)
+            local created = Class.metaOnly(t, mt)
+            function created:new(o)
+                return setmetatable(o or {}, self)
+            end
+            return created
+        end
+    }
+)
+
+
+-- A table with support for tableName:insert, etc.
+NiceTable = Class()
+
+function NiceTable:isEmpty()
+    return self:getn() == 0
 end
 
 function NiceTable:extend(array)
@@ -36,23 +60,19 @@ function NiceTable:extend(array)
         self:insert(value)
     end
 end
-print("extend", NiceTable.extend)
 
---[[ A basic strack. ]]
-
-Stack = {
-    __index = NiceTable
-}
+Stack = Class({}, {__index = NiceTable})
 
 
-function Stack:new(o)
-    o = super(self, o)
-    return o
-end
+-- function Stack:new(o)
+--     return setmetatable(o or {}, self)
+--     o = super(self, o)
+--     return o
+-- end
 
-function Stack:getn()
-    return table.getn(self)
-end
+-- function Stack:getn()
+--     return table.getn(self)
+-- end
 
 function Stack:peek()
     local n = self:getn()
@@ -63,45 +83,46 @@ function Stack:peek()
     return peeked
 end
 
-function Stack:isEmpty()
-    return self:getn() == 0
-end
+-- function Stack:isEmpty()
+--     return self:getn() == 0
+-- end
 
-
-function Stack:isFull()
-    local maxsize = self.maxsize
-    local n = self:getn()
-    if maxsize then
-        return n >= maxsize
-    else
-        return false
-    end
-end
+-- function Stack:isFull()
+--     local maxsize = self.maxsize
+--     local n = self:getn()
+--     if maxsize then
+--         return n >= maxsize
+--     else
+--         return false
+--     end
+-- end
 
 
 function Stack:push(item)
-    if self:isFull() then
-        local maxsize = self.maxsize
-        error(string.format("StackOverflow: stack already at maxsize=%i", maxsize))
-    end
+    -- if self:isFull() then
+    --     local maxsize = self.maxsize
+    --     error(string.format("StackOverflow: stack already at maxsize=%i", maxsize))
+    -- end
     local contents = self._contents
     contents:insert(item)
 end
 
 
 function Stack:pop()
-    local n = self:getn()
-    if n <= 1 then
+    if self:isEmpty() then
         error("StackUnderflow: can't pop from empty stack!")
-        return nil
     end
-    local popped = contents[n]
+    local popped = self[self:getn()]
     contents[n] = nil
     return popped
 end
 
 
-Set = {__index=table}
+Set = Class()
+
+function Set:new(o)
+    return setmetatable(o or {}, self)
+end
 
 function Set:has(item)
     return self[item] == true

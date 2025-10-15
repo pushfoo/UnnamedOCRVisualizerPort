@@ -1,17 +1,10 @@
+require("typechecks")
 require("structures")
 require("fmt")
 
 
 util = {
-    is = {
-        Integer = function(number)
-            if type(number) ~= "number" then return false end
-            return math.modf(number) == 0.0
-        end,
-        NonEmptyArray = function(t)
-            return type(t) == "table" and #t > 0
-        end
-    },
+
     tableWrapNonNil = function(t)
         local typeOf = type(t)
         local result = nil
