@@ -2,24 +2,10 @@ require("localmath")
 require("fmt")
 
 
---[[ @description: Return points for a rectangle with these values.
-
-]]
-function makeRectPoints(left, top, width, height)
-    local bottom = top + height
-    local right = left + width
-    return {
-        left,  top,
-        right, top,
-        right, bottom,
-        left,  bottom
-    }
-end
-
-
 --[[ Helpers to make rectangle bounds from various points.
 
-Inspired by Python Arcade.
+Inspired by Python Arcade. All functions return an LTWH-ordered
+set of coordinates.
 ]]
 makeRectPoints = {
     ltwh = function (left, top, width, height)
@@ -59,9 +45,10 @@ makeRectPoints = {
 
 Rect = {}
 function Rect:new(ltwh)
-    local tlwhType = type(ltwh)
-    if tlwhType ~= "table" then
-        error(string.format("TypeError: must specify x,y,width,height via table, not %s", tostring(tlwhType)))
+    local problem = typeCheckTable("ltwh", ltwh)
+    -- print("table", ltwh)
+    if problem then
+        error(problem)
     end
     local left, top, width, height = unpack(ltwh)
     -- print(left, top, width, height)
@@ -71,10 +58,10 @@ function Rect:new(ltwh)
         width = width,
         height = height
     }
-    setmetatable(instance, self)
+
     self.__index = self
     instance.points = makeRectPoints.ltwh(left, top, width, height)
-    return instance
+    return setmetatable(instance, self)
 end
 
 
@@ -114,11 +101,5 @@ function Rect:contains(other)
 end
 
 
---[[ Objects will serve as globals available on import.
-
-Think of Lua's globals sorta like pre-ES6 JavaScript.
-]]
 rect = {}
 rect.makeRectPoints = makeRectPoints
-
-

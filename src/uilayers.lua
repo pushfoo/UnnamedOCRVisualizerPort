@@ -2,9 +2,12 @@
 require("fmt")
 require("util")
 require("structures")
+require("typechecks")
 require("rect")
 require("colors")
 require("tesseract")
+require("imageconvert")
+
 
 local graphics = love.graphics
 
@@ -33,39 +36,40 @@ function getWordPolygonsFromTesseractData(tsvData)
 end
 
 
-BackgroundLayer = {
+UICheckersLayer = Class({
     colors = {LIGHTER_GRAY, DARKER_GRAY},
     checkerSize = 8
-}
+})
 
 
-function BackgroundLayer:new(o)
-    o = super(self, o)
-    local checkerSize = o.checkerSize
-    local colors = o.colors
-    o.totalSize = checkerSize * 2
-    o.texture = makeCheckers(colors, checkerSize)
+function UICheckersLayer:new(o)
+    o = setmetatable(o or {}, self)
+    o.__index = self
+    o.totalSize = o.checkerSize * 2
+    if o.texture == nil then
+        o.texture = makeCheckers(o.colors, o.checkerSize)
+    end
     -- Fit to 1080p as a "good enough" initial allocation
     o.quad = graphics.newQuad(
         0, 0,
-        1920 + totalSize, 1080 + totalSize,
+        1920 + o.totalSize, 1080 + o.totalSize,
         o.totalSize, o.totalSize
     )
     return o
 end
 
 
-function BackgroundLayer:fitToViewport(left, top, bottom, right)
+function UICheckersLayer:fitToViewport(left, top, bottom, right)
     local totalSize = self.totalSize
     self.quad:setViewport(left, top, bottom, right, totalSize, totalSize)
 end
 
-function BackgroundLayer:setZoom(zoomQuantity)
+function UICheckersLayer:setZoom(zoomQuantity)
 
 end
 
 
-function BackgroundLayer:draw(size)
+function UICheckersLayer:draw(size)
     local w = nil
     local h = nil
     if size == nil then
@@ -129,12 +133,15 @@ function UIImageLayer:setImage(image)
     end
 end
 
+
 function UIImageLayer:loadImage(filename)
-    local image = util.external.load_image(filename)
+    -- local image = util.external.load_image(filename)
+    local image = load_image(filename)
     if image then
         self:setImage(image)
     end
 end
+
 
 function UIImageLayer:getImageSize()
     local dimensions = nil
@@ -169,11 +176,12 @@ function DocumentLayers:setBaseSize(width, height)
     --
 end
 
+
 function DocumentLayers:get(nameOrIndex)
     local keyType = type(nameOrIndex)
     local result = nil
     if keyType == "number" then
-        if isInteger(nameOrIndex) ~= true then
+        if typechecks.is.Integer(nameOrIndex) ~= true then
             error("ValueError: not an integer: " .. tostring(nameOrIndex))
         end
         index = nameOrIndex
@@ -210,9 +218,8 @@ function DocumentLayers:draw()
 end
 
 
-TesseractPreview = {
+TesseractPreview = {}
 
-}
 
 -- NOTE: currently *requires* an AppState reference
 function TesseractPreview:new(o)
@@ -222,7 +229,7 @@ function TesseractPreview:new(o)
     if o.runner == nil then
         o.runner = TesseractRunner:new{lang={"eng"}}
     end
-    o.checkers = layers:add("checkers", BackgroundLayer:new())
+    o.checkers = layers:add("checkers", UICheckersLayer:new())
     o.image =    layers:add("image",    UIImageLayer:new())
     o.bbox =     layers:add("bbox",     UIBBoxLayer:new{runner=o.runner})
     o.chars =    layers:add("chars",    UIBBoxLayer:new{runner=o.runner})
@@ -231,6 +238,7 @@ function TesseractPreview:new(o)
     o.loadImageCallback = function(files, filters, maybeError)
         local filesType = type(files)
         local file = nil
+
         if filesType == "string" then
             file = filesType
         elseif filesType == "table" and #files then
@@ -250,7 +258,7 @@ function TesseractPreview:loadImage(file)
     self.bbox:renderBBoxes(file)
     local gotN = 0
     local cells = self.bbox.cells
-    if util.is.NonEmptyArray(cells) then
+    if typechecks.is.NonEmptyArray(cells) then
         gotN = #cells
     end
     self.filename = file

@@ -61,13 +61,7 @@ fmt = {
         local joined = "{\n" .. table.concat(parts, ",\n") .. "\n}"
         return joined
     end,
-    --[[ Mnemonic sugar around Lua's weirdly-named string.sub function.
 
-    @param s: The string to get the first char of.
-    ]]
-    firstChar = function(s)
-       return string.sub(s, 1, 1)
-    end,
     --[[ Format an error message
 
     @param errorName: IndexError, etc.
@@ -75,7 +69,7 @@ fmt = {
     @param args: A table of args to unpack.
     ]]
     error = function (errorName, template, args)
-        return errorName .. ": " .. string.format(template, args)
+        return errorName .. ": " .. string.format(template, unpack(args))
     end,
     -- Return a wrapped fmt.error wrapper which takes a table.
     getErrorTemplater = function(errorName, template)

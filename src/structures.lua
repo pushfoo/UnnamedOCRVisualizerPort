@@ -20,7 +20,10 @@ function super(self, o, parent)
 end
 
 
+--[[ Create a class-like object.
 
+This is just bordering on too-clever.
+]]
 Class = setmetatable({
         metaOnly = function(t, mt)
             t = t or {}
@@ -36,8 +39,10 @@ Class = setmetatable({
         -- Are we a function? Close enough.
         __call = function(self, t, mt)
             local created = Class.metaOnly(t, mt)
-            function created:new(o)
-                return setmetatable(o or {}, self)
+            if created.new == nil then
+                function created:new(o)
+                    return setmetatable(o or {}, self)
+                end
             end
             return created
         end
@@ -61,18 +66,9 @@ function NiceTable:extend(array)
     end
 end
 
+
 Stack = Class({}, {__index = NiceTable})
 
-
--- function Stack:new(o)
---     return setmetatable(o or {}, self)
---     o = super(self, o)
---     return o
--- end
-
--- function Stack:getn()
---     return table.getn(self)
--- end
 
 function Stack:peek()
     local n = self:getn()
@@ -83,28 +79,9 @@ function Stack:peek()
     return peeked
 end
 
--- function Stack:isEmpty()
---     return self:getn() == 0
--- end
-
--- function Stack:isFull()
---     local maxsize = self.maxsize
---     local n = self:getn()
---     if maxsize then
---         return n >= maxsize
---     else
---         return false
---     end
--- end
-
 
 function Stack:push(item)
-    -- if self:isFull() then
-    --     local maxsize = self.maxsize
-    --     error(string.format("StackOverflow: stack already at maxsize=%i", maxsize))
-    -- end
-    local contents = self._contents
-    contents:insert(item)
+    self:insert(item)
 end
 
 
@@ -112,31 +89,8 @@ function Stack:pop()
     if self:isEmpty() then
         error("StackUnderflow: can't pop from empty stack!")
     end
-    local popped = self[self:getn()]
+    local n = self:getn()
+    local popped = self[n]
     contents[n] = nil
     return popped
 end
-
-
-Set = Class()
-
-function Set:new(o)
-    return setmetatable(o or {}, self)
-end
-
-function Set:has(item)
-    return self[item] == true
-end
-
-function Set:add(item)
-    if self:has(item) == false then
-        self[item] = true
-    end
-end
-
-function Set:remove(item)
-    if self[item] ~= nil then
-        self[item] = nil
-    end
-end
-

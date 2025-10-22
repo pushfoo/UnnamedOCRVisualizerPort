@@ -11,7 +11,7 @@ require("fmt")
 require("rect")
 require("env")
 require("tsv")
-
+require("imageconvert")
 
 -- Converted from the output of tesseract --help-extra
 PAGE_SEGMENTATION_MODE = {
@@ -40,6 +40,19 @@ OCR_ENGINE_MODE = {
     DEFAULT = 3
 }
 
+--[[ Get a raw table of languages from Tesseract.
+
+Note this calls the exectuable. It does not do any
+deep inspection of folders beyond that in any way.
+
+@param executablePath a specific optional tesseract executable.
+]]
+function getLanguages(executablePath)
+    executablePath = executablePath or "tesseract"
+    local cmd = executablePath .. " --list-langs"
+    return env.run.linesTable(cmd, 1)
+end
+
 
 --[[ Tesseract runner instance.
 
@@ -48,57 +61,24 @@ Lang will be concatenated with + signs between it per the
 be overrided. Page segmentation is a bit more complicated
 and may need some automation smarts around it later.
 ]]
-TesseractRunner = {
-    lang=nil, -- default to English
+TesseractRunner = makeRunnerClass("tesseract", {
+    lang=getLanguages(), -- default to English or w/e's installed?
     page_segementation_mode = PAGE_SEGMENTATION_MODE.AUTO,
-    tesseract = env.which("tesseract")
-}
-
---[[ Class method which probes for the first tesseract in PATH.
-
-Override the value directly via :new{tesseract=} if necessary.
-]]
-function TesseractRunner.getLanguages(executablePath)
-    executablePath = executablePath or "tesseract"
-    local linesTable = env.run.linesTable(executablePath .. " --list-langs", 1)
-    return linesTable
-end
-
-
-function TesseractRunner:new(o)
-    o = super(self, o)
-
-    local lang = o.lang
-    if lang == nil then
-        o.lang = TesseractRunner.getLanguages(o.tesseract)
-    else
-        o.lang = util.tableWrapNonNil(lang)
-    end
-
-    o.version = env.versionFor(o.tesseract)
-    print("created TesseractRunner with:")
-    print("  tesseract", o.tesseract)
-    print("  version", o.version)
-    print("  lang", o.lang)
-    return o
-end
-
+})
 
 -- Fast and simple psuedo-set.
 local IS_RECT_ARG = {left = true, top=true, width=true, height=true}
 
 --[[ Generate bounding vertices by extracting the output rect data.
 
+@param dataString a TSV string.
 ]]
 function processTesseractWordTSV(dataString)
     -- local rawData = readTSVAsTables(dataString)
     local rawData = genericReaders.tsv:readString(dataString)
-    for k, v in pairs(rawData) do
-        print(k, v)
-    end
     columnOrder = rawData.columnOrder
     rows = rawData.rows
-    local processed = NiceTable:new()
+    local words = NiceTable:new()
     for _, row in ipairs(rows) do
         --[[ M]]
         local newRow = NiceTable:new()  -- The row object
@@ -115,9 +95,9 @@ function processTesseractWordTSV(dataString)
             end
         end
         newRow.rect = Rect:new(rectArgs)
-        processed:insert(newRow)
+        words:insert(newRow)
     end
-    return processed
+    return words
 end
 
 TESSERACT_OP_MODES = {
@@ -126,30 +106,31 @@ TESSERACT_OP_MODES = {
 }
 
 function TesseractRunner.concatLangs(langs)
-    if langs then
-        local asTable = util.tableWrapNonNil(langs)
-        local joined = table.concat(langs, "+")
-        return joined
-    end
+    local asTable = util.tableWrapNonNil(langs)
+    local joined = table.concat(asTable, "+")
+    return joined
 end
 
-CHAR_BOX_HEADERS = {
+-- What the character-level bbox columns seem to mean.
+local CHAR_BOX_HEADERS = {
     -- level is unclear since the doc is kinda bad
     "char", "left", "bottom", "right", "top", "level"
 }
 
 function TesseractRunner:getCharBoxes(path, imSize, languages)
-    local tesseract = self.tesseract
+    local tesseract = self.which
     local languages = table.concat(self.lang, "+")
     local width = imSize[1]
     local height = imSize[2]
 
     local cmdRaw = string.format(
-        "%s %s - -l %s makeboxes", self.tesseract, path, languages)
-    rawTSV = env.run.getAllOutput(cmdRaw)
+        "%s %s - -l %s makeboxes", self.which, path, languages)
+
+    rawTSV = env.run.getOutputAfterNLines(cmdRaw)
     local boxData = defaultReaders.tsv:readTSVAsTables(rawTSV, CHAR_BOX_HEADERS)
     local columnOrder = boxData.columnOrder
-    local asTopLeftOrigin = NiceTable:new()
+    local glyphs = NiceTable:new()
+
     for _, row in ipairs(boxData) do
         local charData = {char=row.char}
         -- Flip the y axis because chars are bottom-relative for historical reasons
@@ -157,18 +138,31 @@ function TesseractRunner:getCharBoxes(path, imSize, languages)
             left, height - top,
             right, height - bottom
         }
-        asTopLeftOrigin:insert(charData)
+        glyphs:insert(charData)
     end
-    return asTopLeftOrigin
+
+    return glyphs
 end
 
 
+--[[ Get final word bounding boxes for an image.
+
+By default, it uses all known langauges in the order
+available. You can pass a table of specific languages
+if you wish.
+
+@param path The image file to load.
+@param langauges Override the default language list.
+]]
 function TesseractRunner:getWords(path, languages)
-    local tesseract = self.tesseract
-    local languages = table.concat(self.lang, "+")
+    local tesseract = self.which
+    languages = languages or self.lang
+    langs = TesseractRunner.concatLangs(languages)
+
     local cmdRaw = string.format(
-         "%s %s - -l %s tsv", self.tesseract, util.escapePathSpaces(path), languages)
-    -- local cmdRaw = self:formatCommand(path, "tsv", self.lang)
-    local rawTSV = env.run.getAllOutput(cmdRaw)
-    return processTesseractWordTSV(rawTSV)
+         "%s %s - -l %s tsv", self.which, util.escapePathSpaces(path), langs)
+
+    local rawTSV = env.run.getOutputAfterNLines(cmdRaw)
+    local bboxes = processTesseractWordTSV(rawTSV)
+    return bboxes
 end

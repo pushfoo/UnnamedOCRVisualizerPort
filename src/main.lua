@@ -34,21 +34,15 @@ function AppState:new(o)
     return o
 end
 
-function tableWrapString(tableOrString)
-    local tType = type(tableOrString)
-    if tType == "string" then
-        return {tableOrString}
-    elseif tType == "table" then
-        return tableOrString
-    end
-    error("TypeError: expected a string or table, not a " .. tType)
-end
+
 
 function AppState:setStateTitle(rawParts)
-    local parts = NiceTable:new{
-        self.baseTitle,
-        unpack(tableWrapString(rawParts or self.noDocument))
-    }
+    local parts = NiceTable:new{self.baseTitle}
+    if typechecks.is.NonEmptyArray(rawParts) then
+        parts:extend(rawParts)
+    else
+        parts:insert(rawParts or self.noDocument)
+    end
     local joined = parts:concat(" - ")
     love.window.setTitle(joined)
 end
@@ -65,6 +59,7 @@ end
 
 ZOOM_RATE = 0.1
 state = nil
+
 
 -- [[ Handle mouse wheel (y by default) ]]
 function love.wheelmoved(x, y)
@@ -84,8 +79,8 @@ end
 
 
 function love.load(args)
+    local runner = TesseractRunner:new()
 
-    local runner = TesseractRunner:new{lang={"eng"}}
     state = AppState:new{runner=runner}
     local width, height, mode = love.window.getMode()
     mode.resizable = true
@@ -95,8 +90,9 @@ end
 
 
 function love.draw()
+    -- Reset colors and visual transform
     love.graphics.setColor(WHITE)
     love.graphics.replaceTransform(state.currentTransform)
+
     state.preview.layers:draw()
 end
-

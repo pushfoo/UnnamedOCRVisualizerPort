@@ -18,6 +18,16 @@ So far:
 
 [Tesseract]: https://github.com/tesseract-ocr/tesseract
 
+### Optional Accessories
+
+You can load arbitrary images if you have ImageMagick's `magick` command installed.
+
+On Mac, homebrew should work. On Linux, your package manager should handle installing.
+For windows or more details, please see the [ImageMagick download page][].
+
+[ImageMagick download page]: https://imagemagick.org/script/download.php
+
+
 ## Why?
 
 1. Lua-based applications:

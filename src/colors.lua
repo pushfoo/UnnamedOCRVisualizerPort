@@ -2,6 +2,7 @@
 
 ]]
 require("util")
+require("structures")
 require("localmath")
 
 --[[ Convert a luminance value to a normalized RGBA color.
@@ -137,13 +138,9 @@ DEFAULT_CONF_COLORS = {
 
 This is how we show confidence on screen.
 ]]
-ColorMapper = {colors={unpack(DEFAULT_CONF_COLORS)}}
 
-function ColorMapper:new(o)
-    -- Good-enough quick-copyhttp://lua-users.org/wiki/CopyTable
-    o = super(self, o)
-    return o
-end
+ColorMapper = Class({colors={unpack(DEFAULT_CONF_COLORS)}})
+
 
 function ColorMapper:map(normFloat)
     return mapNormFloatToColor(normFloat, self.colors)

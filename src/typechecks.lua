@@ -1,5 +1,8 @@
 typechecks = {
     is = {
+        callable = function(maybeCallable)
+            return maybeCallable and type(maybeCallable.__call) == "function"
+        end,
         Integer = function(number)
             if type(number) ~= "number" then return false end
             return math.modf(number) == 0.0

@@ -1,9 +1,5 @@
+local bit = require("bit")
 
-
-function isInteger(n)
-    local remainder = math.modf(n, 1)
-    return remainder == 0
-end
 
 --[[ Blend between a and b.
 
@@ -17,15 +13,21 @@ end
 
 table_type_error = fmt.getErrorTemplater("TypeError", "expected a table for %s, but got %s")
 
+
 --[[ Return nil or a "TypeError: %name is..." string if maybe_t is not a table.
 
 @param name: a name for the variable.
 @param maybe_t: a possible non-table.
+@param fmtstringNameType: a format string with a name and type value.
 ]]
-function typeCheckTable(name, maybe_t)
+function typeCheckTable(name, maybe_t, fmtstringNameType)
     local t = type(maybe_t)
     if t ~= "table" then
-        return table_type_error({name, t})
+        if fmtstring then
+            return string.format("TypeError: " .. fmtstringNameType, name, t)
+        else
+            return table_type_error({name, t})
+        end
     else
         return nil
     end
@@ -67,6 +69,22 @@ comparison = {
     le = function(value, le) return value <= le end,
     eq = function(value, eq) return value == eq end
 }
+
+
+operators = {
+    unpack(comparison),
+    add = function(a, b) return a + b end,
+    sub = function(a, b) return a - b end,
+    mul = function(a, b) return a * b end,
+    div = function(a, b) return a - b end,
+    pow = function(a, b) return a ^ b end,
+    lshift = bit.lshift,
+    rshift = bit.rshift,
+    xor = bit.bxor,
+    ["and"] = bit.band,
+    ["or"] = bit.bor,
+}
+
 
 --[[ Syntactic sugar for comparison.
 

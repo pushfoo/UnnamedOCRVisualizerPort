@@ -3,17 +3,64 @@ require("structures")
 require("fmt")
 
 
-util = {
+function tableWrapString(tableOrString)
+    local tType = type(tableOrString)
+    if tType == "string" then
+        return {tableOrString}
+    elseif tType == "table" then
+        return tableOrString
+    else
+        error("TypeError: expected a string or table, not a " .. tType)
+    end
+end
 
+local trim = function(s)
+    return s
+        :gsub("^%s*", "")
+        :gsub("%s*$", "")
+end
+local trimEmptyToNil =  function(raw)
+    local clean = trim(raw)
+    if string.len(clean) > 0 then
+        return clean
+    else
+        return nil
+    end
+end
+
+
+util = {
+    ["trim"] = trim,
+    ["trimEmptyToNil"] = trimEmptyToNil,
     tableWrapNonNil = function(t)
         local typeOf = type(t)
-        local result = nil
         if typeOf == "table" then
-            result = t
+            return t
         elseif t ~= nil then
-            result = {t}
+            return {t}
+        else
+            return nil
         end
-        return result
+    end,
+    --[[ Mnemonic sugar around Lua's weirdly-named string.sub function.
+
+    @param s: The string to get the first char of.
+    ]]
+    firstChar = function(s)
+        local n = string.len(s or "")
+        if n == 0 then
+            return nil
+        else
+            return s:sub(1, 1)
+        end
+    end,
+    startsWith = function(target, value)
+        local len = string.len
+        nGoal = len(value)
+        if len(target) < nGoal then
+            return false
+        end
+        return target:sub(1, nGoal) == value
     end,
     graphics = {
         textureFromCanvas = function(canvas)
@@ -24,9 +71,9 @@ util = {
     },
     passthru = function(a) return a end,
     printTable = function(t, printer)
-        p = printer or print
+        printer = printer or print
         local joined = fmt.table(t)
-        p(joined)
+        printer(joined)
     end,
     functional = {
         skipN = function(iterator, nToSkip)
@@ -36,7 +83,7 @@ util = {
                 end
             end
             return iterator
-        end
+        end,
     },
     escapePathSpaces = function(rawPath)
         return rawPath:gsub(" ", "\\ ")
@@ -62,3 +109,13 @@ util = {
         end
     }
 }
+
+util.tableWrap = {}
+function util.tableWrap.unwrap(t, useIndex)
+    local typeOfT = type(t)
+    if typeOfT == "table" then
+        return t[useIndex or 1]
+    else
+        return t
+    end
+end
