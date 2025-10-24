@@ -44,7 +44,7 @@ function asNormColor(v)
     if src == "number" then
         return fromLuminance(v)
     elseif src == "table" then
-        local vN = table.getn(v)
+        local vN = #v
         if vN == 3 then
             return {unpack(v), 1.0}
         elseif vN == 4 then
@@ -75,12 +75,12 @@ function makeCheckers(colors, checkerSize)
     elseif checkerSize == nil then
         checkerSize = 8
     end
-    totalSize = checkerSize * 2
+    local totalSize = checkerSize * 2
     local fg = asNormColor(colors[1])
     local bg = asNormColor(colors[2])
 
     local graphics = love.graphics
-    checkerCanvas = graphics.newCanvas(totalSize, totalSize)
+    local checkerCanvas = graphics.newCanvas(totalSize, totalSize)
     graphics.setCanvas(checkerCanvas)
     graphics.clear{unpack(bg)}
     graphics.setColor{unpack(fg)}
@@ -108,8 +108,7 @@ function mapNormFloatToColor(normValue, colorTable)
         return GRAY
     end
     local mapping = colorTable or DEFAULT_CONF_COLORS
-    local n = table.getn(mapping)
-    local n_minus = n - 1
+    local n = #mapping
 
     if normValue >= 1.0 then
         return mapping[n]
@@ -120,7 +119,6 @@ function mapNormFloatToColor(normValue, colorTable)
     if towardNext == 0.0 then
         return baseColor
     end
-
     local endColor = mapping[math.min(n, index + 1)]
 
     local result = lerpTable(baseColor, endColor, towardNext)

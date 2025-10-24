@@ -69,6 +69,7 @@ TesseractRunner = makeRunnerClass("tesseract", {
 -- Fast and simple psuedo-set.
 local IS_RECT_ARG = {left = true, top=true, width=true, height=true}
 
+
 --[[ Generate bounding vertices by extracting the output rect data.
 
 @param dataString a TSV string.
@@ -76,8 +77,8 @@ local IS_RECT_ARG = {left = true, top=true, width=true, height=true}
 function processTesseractWordTSV(dataString)
     -- local rawData = readTSVAsTables(dataString)
     local rawData = genericReaders.tsv:readString(dataString)
-    columnOrder = rawData.columnOrder
-    rows = rawData.rows
+    local columnOrder = rawData.columnOrder
+    local rows = rawData.rows
     local words = NiceTable:new()
     for _, row in ipairs(rows) do
         --[[ M]]
@@ -107,7 +108,10 @@ TESSERACT_OP_MODES = {
 
 function TesseractRunner.concatLangs(langs)
     local asTable = util.tableWrapNonNil(langs)
-    local joined = table.concat(asTable, "+")
+    local joined = nil
+    if asTable then
+        joined = table.concat(asTable, "+")
+    end
     return joined
 end
 
@@ -135,8 +139,8 @@ function TesseractRunner:getCharBoxes(path, imSize, languages)
         local charData = {char=row.char}
         -- Flip the y axis because chars are bottom-relative for historical reasons
         charData.rect = Rect:new{
-            left, height - top,
-            right, height - bottom
+            row[1], height - row[5],
+            row[4], height - row[3]
         }
         glyphs:insert(charData)
     end
@@ -155,7 +159,6 @@ if you wish.
 @param langauges Override the default language list.
 ]]
 function TesseractRunner:getWords(path, languages)
-    local tesseract = self.which
     languages = languages or self.lang
     langs = TesseractRunner.concatLangs(languages)
 

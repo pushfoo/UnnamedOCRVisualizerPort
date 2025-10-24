@@ -56,7 +56,7 @@ util = {
     end,
     startsWith = function(target, value)
         local len = string.len
-        nGoal = len(value)
+        local nGoal = len(value)
         if len(target) < nGoal then
             return false
         end
@@ -98,14 +98,13 @@ util = {
     external = {
         load_file = function(path, mode)
             local file = io.open(path, mode)
-            local raw = file:read("*a")
-            file:close()
-            local data = love.filesystem.newFileData(raw, path)
+            local data = nil
+            if file then
+                local raw = file:read("*a")
+                file:close()
+                data = love.filesystem.newFileData(raw, path)
+            end
             return data
-        end,
-        load_image = function(path)
-            local data = util.external.load_file(path, "rb")
-            return love.graphics.newImage(data)
         end
     }
 }

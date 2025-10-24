@@ -11,17 +11,21 @@ function ImageMagick:readStdin(path)
     if util.startsWith(raw, INLINE_PNG_HEADER) ~= true then
         return nil
     end
-    local data = raw:sub(#INLINE_PNG_HEADER, #raw)
+
     -- throw away the "data:image/png;base64,"
-    local data = love.data.decode("data", "base64", data)
+    local minusHeader = raw:sub(#INLINE_PNG_HEADER, #raw)
+    local data = love.data.decode("data", "base64", minusHeader)
     return data
 end
 
 
-function ImageMagick:loadAsLoveImage(path, extraArgs)
-    local bytes = self:readStdin(path, extraArgs)
-    local data = love.filesystem.newFileData(bytes, tostring(path))
-    local image = love.graphics.newImage(data)
+function ImageMagick:loadAsLoveImage(path)
+    local bytes = self:readStdin(path)
+    local image = nil
+    if bytes then
+        local data = love.filesystem.newFileData(bytes, tostring(path))
+        image = love.graphics.newImage(data)
+    end
     return image
 end
 
@@ -29,7 +33,7 @@ end
 function isNativeFileType(path, native_types)
     print(path, native_types)
     local extension = Path:new(path):getExtension()
-    for i, supported in ipairs(native_types) do
+    for supported in native_types do
         if supported == extension then
             return true
         end
@@ -39,19 +43,18 @@ end
 
 
 ImageLoader = Class({
-    natively_supports = {"jpg", "jpeg", "png", "bmp"},
+    natively_supports = {jpg = true, jpeg = true, png = true, bmp = true},
     use_magic = ImageMagick:new()
 })
 
 
 function ImageLoader:loadImage(path)
-    local pathObject = Path:new(path)
     local data = nil
-    local n = #tostring(path)
-
+    local image = nil
+    local pathObject = Path:new(path)
     local extension = pathObject:getExtension()
 
-    if extension == "png" or extension == "jpg" then
+    if self.natively_supports[extension] then
         print("ImageLoader using native loading for " .. extension)
         data = util.external.load_file(path, "rb")
     elseif self.use_magic then
@@ -63,7 +66,9 @@ function ImageLoader:loadImage(path)
     else
         error("NoImageMagick: Cannot load non-supported image type without ImageMagick: " .. tostring(path))
     end
-    local image = love.graphics.newImage(data)
+    if data then
+        image = love.graphics.newImage(data)
+    end
     return image
 end
 

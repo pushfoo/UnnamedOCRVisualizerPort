@@ -59,8 +59,8 @@ splitHelpers = {
             header = forceHeader
             iterationStart = 1
         end
-        local nHeader = table.getn(header)
-        local nDataRows = table.getn(raw)
+        local nHeader = #header
+        local nDataRows = #raw
         local namedRows = NiceTable:new()
         local n_items = 0
         for rowIndex = iterationStart,nDataRows do
@@ -101,8 +101,11 @@ end
 
 function DelimReader:readFile(path)
     local file = io.open(path, "r")
-    local raw = file:read("*a")
-    file:close()
+    local raw = nil
+    if file then
+        raw = file:read("*a")
+        file:close()
+    end
     return raw
 end
 

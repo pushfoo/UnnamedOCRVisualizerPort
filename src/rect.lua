@@ -66,22 +66,23 @@ end
 
 
 function fmtRectError(name, wrong)
-    return format("%s: expected a point of length 2 or another Rect, but got %s", name, wrong)
+    return string.format("%s: expected a point of length 2 or another Rect, but got %s", name, wrong)
 end
 
 
 function Rect:contains(other)
     local otherType = type(other)
-    if otherType ~= "table" or not isVoLength then
+    if otherType ~= "table" then
         error(fmtRectError("TypeError", otherType))
     end
-    local oLength = table.getn(other)
+    local oLength = #other
     if oLength == 2 then
-        local x, y = other
+        local x = other[1]
+        local y = other[2]
         return valueIs(x, {ge=self.left, le=self.right}) and valueIs(y, {ge=self.top, le=self.bottom})
     end
 
-    local otherMetatable = getmetatable(other, t)
+    local otherMetatable = getmetatable(other)
     local useCoords = nil
     if otherMetatable == Rect then
         useCoords = {other.left, other.top, other.right, other.bottom}
@@ -91,7 +92,10 @@ function Rect:contains(other)
         error(fmtRectError("TypeError", otherType))
     end
 
-    local oLeft, oTop, oRight, oBottom = useCoords
+    local oLeft = useCoords[1]
+    local oTop = useCoords[2]
+    local oRight = useCoords[3]
+    local oBottom = useCoords[4]
     return (
         self.left <= oLeft
         and oRight <= self.right

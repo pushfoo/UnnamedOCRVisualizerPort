@@ -1,3 +1,4 @@
+require("env")
 require("fmt")
 require("util")
 
@@ -7,7 +8,7 @@ love.filesystem.setSymlinksEnabled(true)
 parse.file = function(path)
     local info = love.filesystem.getInfo(path, {type="file"})
     if info ~= nil then
-        return file
+        return info
     else
         return nil
     end
@@ -26,7 +27,7 @@ function parse.State:new(o)
     if o.args == nil then
         error(fmt.errors.required_value({fmt.quote("args")}))
     end
-    o.n_args = table.getn(o.args)
+    o.n_args = #(o.args)
     o.current = o.current or 1
     o.parsed = {
         flags = {},
@@ -46,6 +47,7 @@ end
 
 
 parse.error = fmt.getErrorTemplater("ParseError", "cannot parse %s from \"%s\"")
+
 
 function getFlagType(argvEntry)
     if argvEntry == nil then
@@ -69,7 +71,7 @@ end
 local ARGS = {
     path = {
         help="The path to read",
-        parser=parseFilePath
+        -- parser=parseFilePath
     }
 }
 

@@ -1,5 +1,19 @@
 local bit = require("bit")
 
+--[[ Scale a valueSize to fit into a goalSize. ]]
+function scaleSizeInto(goalSize, currentSize)
+    local vW = currentSize[1]
+    local vH = currentSize[2]
+    local maxW = goalSize[1]
+    local maxH = goalSize[2]
+    local ratioW = maxW / vW
+    local ratioH = maxH / vH
+    local ratio = math.min(ratioW, ratioH)
+    return {
+        vW * ratio,
+        vH * ratio,
+    }
+end
 
 --[[ Blend between a and b.
 
@@ -46,14 +60,14 @@ function lerpTable(t_a, t_b, blend)
     if problem ~= nil then error(problem) end
     problem = typeCheckTable("t_b", t_b)
     if problem ~= nil then error(problem) end
-    local n = table.getn(t_a)
-    local n_b = table.getn(t_b)
-    if n ~= table.getn(t_b) then
+    local n_a = #t_a
+    local n_b = #t_b
+    if n_a ~= n_b then
         error(fmt.error("ValueError", "mismatch of table lengths: a has %i, b has %i", {n, n_b}))
     end
 
     local result = {}
-    for i = 1,n do
+    for i = 1,n_a do
         local channel_a = t_a[i]
         local channel_b = t_b[i]
         local channel_result = lerp(channel_a, channel_b, blend)
@@ -93,9 +107,9 @@ holds the functions used.
 ]]
 function valueIs(value, opts)
     for funcName, optValue in ipairs(opts) do
-        local opFunction = comparison[name]
+        local opFunction = comparison[funcName]
         if opFunction == nil then
-            error(format("KeyError: uknown comparison operation \"%s\"", name))
+            error(string.format("KeyError: uknown comparison operation \"%s\"", funcName))
         end
         if not opFunction(value, optValue) then
             return false

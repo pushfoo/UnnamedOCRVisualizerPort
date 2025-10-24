@@ -74,8 +74,11 @@ function UICheckersLayer:draw(size)
     local h = nil
     if size == nil then
         w, h = graphics.getDimensions()
+    elseif type(size) == "table" and #size == 2 then
+        w = size[1]
+        h = size[2]
     else
-        w, h = size
+        error("TypeError: size=" .. type(size) .. ", neither nil nor a table of length 2")
     end
     self:fitToViewport(0,0,w,h)
     graphics.draw(self.texture, self.quad)
@@ -172,14 +175,10 @@ function DocumentLayers:new(o)
 end
 
 
-function DocumentLayers:setBaseSize(width, height)
-    --
-end
-
-
 function DocumentLayers:get(nameOrIndex)
     local keyType = type(nameOrIndex)
     local result = nil
+    local index = nil
     if keyType == "number" then
         if typechecks.is.Integer(nameOrIndex) ~= true then
             error("ValueError: not an integer: " .. tostring(nameOrIndex))
@@ -188,7 +187,7 @@ function DocumentLayers:get(nameOrIndex)
     elseif keyType == "string" then
         index = self.byName[nameOrIndex]
     end
-    layerAndName = self.layers[index]
+    local layerAndName = self.layers[index]
     if layerAndName then
         result = layerAndName.layer
     end

@@ -39,7 +39,7 @@ fmt = {
         3. Prefix "--"
         ]]
         long = function(name)
-            return "--" .. string.gsub(name, "[_%w]+", "-").lower()
+            return "--" .. name:gsub("[_%w]+", "-").lower()
         end
     },
     --[[ Format a table as a string. ]]

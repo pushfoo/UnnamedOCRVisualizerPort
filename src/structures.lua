@@ -61,7 +61,7 @@ function NiceTable:extend(array)
     if array == nil then
         return
     end
-    for i, value in ipairs(array) do
+    for _, value in ipairs(array) do
         self:insert(value)
     end
 end
@@ -91,6 +91,6 @@ function Stack:pop()
     end
     local n = self:getn()
     local popped = self[n]
-    contents[n] = nil
+    self[n] = nil
     return popped
 end

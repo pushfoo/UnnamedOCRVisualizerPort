@@ -24,7 +24,7 @@ Path = {
 
 Path.__tostring = function(self)
     local n = self:getn()
-    parts = {}
+    local parts = {}
     for i = 1,n do
         table.insert(parts, self[i])
     end
@@ -41,7 +41,7 @@ end
 
 function Path:new(o)
     o = o or "."
-    typeO = type(o)
+    local typeO = type(o)
     if typeO == "string" then
         if o == "." then
             o = env.pwd()
@@ -62,9 +62,9 @@ function Path:new(o)
     return setmetatable(o, Path)
 end
 
-function Path:getn()
-    return table.getn(self)
-end
+-- function Path:getn()
+--     return table.getn(self)
+-- end
 
 
 --[[ Enable Python-style path shorthand:
@@ -87,7 +87,7 @@ end
 
 
 function Path:getName()
-    return self[self:getn()]
+    return self[#self]
 end
 
 
@@ -154,34 +154,51 @@ end
 local trimEmptyToNil = util.trimEmptyToNil
 env = {
     pwd = function()
+        local trimmed = nil
         local handle = io.popen("pwd")
-        local raw = handle:read()
-        local trimmed = trimEmptyToNil(raw)
+        if handle then
+            local raw = handle:read()
+            trimmed = trimEmptyToNil(raw)
+        end
         return trimmed
     end,
     ls = function(directory)
         directory = directory or "."
+        local t = NiceTable:new()
         local handle = io.popen("ls " .. directory)
-        t = NiceTable:new()
-        for entry in handle:lines() do t:insert(entry) end
+        if handle then
+            for entry in handle:lines() do t:insert(entry) end
+        end
         return t
     end,
     which = function(cmdname)
+        local raw = nil
         local handle = io.popen("which " .. cmdname)
-        local raw = handle:read()
+        if handle then
+            raw = handle:read()
+        end
         return trimEmptyToNil(raw)
     end,
     versionFor = function(cmdname, versionPattern)
         versionPattern = versionPattern or "[%d.]+"
+        local version = nil
         local handle = io.popen(cmdname .. " --version")
-        local toProcess = trimEmptyToNil(handle:read())
-        local it = string.gmatch(toProcess, versionPattern)
-        return it()
+        if handle then
+            local toProcess = trimEmptyToNil(handle:read())
+            if toProcess then
+                local it = string.gmatch(toProcess, versionPattern)
+                version = it()
+            end
+        end
+        return version
     end,
     run = {
         readString = function(cmd)
             local handle = io.popen(cmd)
-            local stringRaw = handle:read()
+            local stringRaw = nil
+            if handle then
+                stringRaw = handle:read()
+            end
             return stringRaw
         end,
         --[[ Work-around for Lua's io.open not having a true bytes read mode.
@@ -192,17 +209,24 @@ env = {
         readBytes = function(cmd)
             local b64 = cmd .. " | base64"
             -- print("cmd with base64", b64)
+            local bytes = nil
             local handle = io.popen(b64, "r")
-            local data = handle:read()
-
-            local bytes = love.data.decode("data", "base64", data)
-            -- print("bytes", bytes, tostring(bytes:getSize()), "bytes read")
+            if handle then
+                local data = handle:read()
+                if data then
+                    bytes = love.data.decode("data", "base64", data)
+                end
+                -- print("bytes", bytes, tostring(bytes:getSize()), "bytes read")
+            end
             return bytes
         end,
         --[[ Get an iterator, optionally skipping the first skipN lines. ]]
         linesIterator = function(cmd, skipN)
+            local linesIt = nil
             local handle = io.popen(cmd)
-            local linesIt = util.functional.skipN(handle:lines(), skipN)
+            if handle then
+                linesIt = util.functional.skipN(handle:lines(), skipN)
+            end
             return linesIt
         end,
         linesTable = function(cmd, skipN)
@@ -242,4 +266,18 @@ function makeRunnerClass(
     defaultCommands[commandName] = command
 
     return command
+end
+
+--[[ Backport stub for 11.5 / some IDEs to stop complaining.
+
+]]
+if love.window.showFileDialog == nil then
+    -- stub for Linux for now
+    love.window.showFileDialog = function(action, callback)
+        if action ~= "openfile" then
+            error("ValueError: this is a partial stub. Only openfile is supported, not " .. action)
+        end
+        local filename = env.run.readString(string.format("zenity --file-selection"))
+        return callback(filename)
+    end
 end
