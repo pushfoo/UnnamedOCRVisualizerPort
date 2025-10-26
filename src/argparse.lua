@@ -1,11 +1,12 @@
-require("env")
-require("fmt")
-require("util")
+local env = require("env")
+local fmt = require("fmt")
+local util = require("util")
 
-parse = {}
+local argparse = {}
 
 love.filesystem.setSymlinksEnabled(true)
-parse.file = function(path)
+
+argparse.file = function(path)
     local info = love.filesystem.getInfo(path, {type="file"})
     if info ~= nil then
         return info
@@ -15,8 +16,9 @@ parse.file = function(path)
 end
 
 
-parse.State = {}
-function parse.State:new(o)
+argparse.State = {}
+
+function argparse.State:new(o)
     print("parse state?")
     o = o or {}
     if o.args == nil then
@@ -37,7 +39,7 @@ function parse.State:new(o)
 end
 
 
-function parse.State:consume(n)
+function argparse.State:consume(n)
     local afterN = o.current + n
     if afterN > o.n_args then
         error(fmt.errors.index_error({n, o.current, o.n_args}))
@@ -46,7 +48,7 @@ function parse.State:consume(n)
 end
 
 
-parse.error = fmt.getErrorTemplater("ParseError", "cannot parse %s from \"%s\"")
+argparse.error = fmt.getErrorTemplater("ParseError", "cannot parse %s from \"%s\"")
 
 
 function getFlagType(argvEntry)
@@ -77,3 +79,5 @@ local ARGS = {
 
 local FLAGS = {
 }
+
+return argparse

@@ -8,79 +8,97 @@
 
 ]]
 
-fmt = {
-    --[[ Quote-wrap any item (naively passes to tostring() first).
+local fmt = {}
 
-    @param anything: a value to quotewrap
-    @param quote: optional quote character (defaults to `"`)
-    ]]
-    quote = function(anything, quote)
-        quote = quote or "\""
-        if type(anything) ~= "string" then
-            anything = tostring(anything)
-        end
-        return string.format("%s%s%s", quote, anything, quote)
-    end,
+--- Quote-wrap any item (naively passes to tostring() first).
+---@param anything any a value to quotewrap
+---@param quote string? optional quote character (defaults to `"`)
+---@return string
+function fmt.quote(anything, quote)
+    quote = quote or "\""
+    if type(anything) ~= "string" then
+        anything = tostring(anything)
+    end
+    return string.format("%s%s%s", quote, anything, quote)
+end
+
     -- [[ Format CLI flags. ]]
-    flags = {
-        --[[ Format a name to a short flag by taking the first character.
+fmt.flags = {}
 
-        IMPORTANT: Assumes the following:
-        - We don't need to case-shift values.
-        - The first char will be valid.
-        ]]
-        short = function(name)
-            return "-" .. string.sub(name, 1, 1)
-        end,
-        --[[ Format a name to a long flag.
 
-        1. Replace all spaces and underscores with "-"
-        2. Lowercase it
-        3. Prefix "--"
-        ]]
-        long = function(name)
-            return "--" .. name:gsub("[_%w]+", "-").lower()
+--- Format a name to a short flag by taking the first character.
+--- IMPORTANT: Assumes the following:
+--- - We don't need to case-shift values.
+--- - The first char will be valid.
+---@param name string The name of the variable.
+---@return string - The `-n` for `name_width_underscores`.
+function fmt.flags.short(name)
+    return "-" .. string.sub(name, 1, 1)
+end
+
+--- Format a name to a long flag.
+---@param name string A value name for the flag.
+---@param autoLower? boolean Whether to autolowercase.
+---@return string? - A string of the form `--name-with-dashes`.
+function fmt.flags.long(name, autoLower)
+    local substituted = name:gsub("[_%w]+", "-")
+    if substituted then
+        if autoLower or false then
+             substituted = substituted:lower()
         end
-    },
-    --[[ Format a table as a string. ]]
-    table = function(t, indent)
-        if t == nil then return "nil" end
-        if indent == nil then indent = "" end
-        local parts = {}
-        for k, v in ipairs(t) do
-            local kString = tostring(k)
-            local vString = nil
-            if type(v) == "table" then
-                vString = fmt.table(v, indent .. "    ")
-            else
-                vString = tostring(v)
-            end
-            local formatted = string.format("    %s=%s", kString, vString)
-            table.insert(parts, formatted)
-        end
-        local joined = "{\n" .. table.concat(parts, ",\n") .. "\n}"
-        return joined
-    end,
+        return "--" .. substituted
+    end
+    return nil
+end
 
-    --[[ Format an error message
-
-    @param errorName: IndexError, etc.
-    @param template: A string.format template.
-    @param args: A table of args to unpack.
-    ]]
-    error = function (errorName, template, args)
-        return errorName .. ": " .. string.format(template, unpack(args))
-    end,
-    -- Return a wrapped fmt.error wrapper which takes a table.
-    getErrorTemplater = function(errorName, template)
-        local templater = function(args)
-            return fmt.error(errorName, template, args)
+--- Format a table as a string.
+---@param t table<any, any>
+---@param indent? string
+---@return string
+function fmt.table(t, indent)
+    if t == nil then return "nil" end
+    if indent == nil then indent = "" end
+    local parts = {}
+    for k, v in ipairs(t) do
+        local kString = tostring(k)
+        local vString = nil
+        if type(v) == "table" then
+            vString = fmt.table(v, indent .. "    ")
+        else
+            vString = tostring(v)
         end
-        return templater
-    end,
-    --[[ Static table to hold shared error formatters (see below)]]
-    errors = {},
+        local formatted = string.format("    %s=%s", kString, vString)
+        table.insert(parts, formatted)
+    end
+    local joined = "{\n" .. table.concat(parts, ",\n") .. "\n}"
+    return joined
+end
+
+--- Format an error message
+---@param errorName string IndexError, etc.
+---@param template string A string.format template.
+---@param args table<string, any> A table of args to unpack.
+---@return string
+function fmt.error(errorName, template, args)
+    return errorName .. ": " .. string.format(template, unpack(args))
+end
+
+--- Return a wrapped fmt.error wrapper which takes a table.
+---@param errorName string
+---@param template string
+---@return function
+function fmt.getErrorTemplater(errorName, template)
+    local templater = function(args)
+        return fmt.error(errorName, template, args)
+    end
+    return templater
+end
+
+--[[ Static table to hold shared error formatters (see below)]]
+fmt.errors = {
+    required_value = fmt.getErrorTemplater("RequiredValue", "missing required %s= value"),
+    index_error = fmt.getErrorTemplater("IndexError", "expected %i with current=%i: only have %i args"),
+    wrong_size = fmt.getErrorTemplater("WrongSizeError", "expected %s, but got %i")
 }
-fmt.errors.required_value = fmt.getErrorTemplater("RequiredValue", "missing required %s= value")
-fmt.errors.index_error = fmt.getErrorTemplater("IndexError", "expected %i with current=%i: only have %i args")
-fmt.errors.wrong_size = fmt.getErrorTemplater("WrongSizeError", "expected %s, but got %i")
+
+return fmt

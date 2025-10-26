@@ -1,15 +1,11 @@
--- TODO: Use the OOP-style API they added at some point?
-require("fmt")
-require("util")
-require("rect")
-require("colors")
-require("args")
-require("tesseract")
-require("uilayers")
-require("structures")
+local structures = require("structures")
+local tesseract  = require("tesseract")
+local uilayers   = require("uilayers")
+local typechecks = require("typechecks")
+local colors     = require("colors")
 
 
-NO_IMAGE = "(No image)"
+local NO_IMAGE = "(No image)"
 AppState = {
     baseTitle = "UnnamedOCRPreview",
     noDocument = NO_IMAGE
@@ -17,16 +13,17 @@ AppState = {
 
 
 function AppState:new(o)
-    o = super(self, o)
+    o = structures.super(self, o)
     if o.runner == nil then
         print("no runner provided to app state?")
-        o.runner = TesseractRunner:new{lang={"eng"}}
+        ---@diagnostic disable-next-line
+        o.runner = tesseract.TesseractRunner:new{lang={"eng"}}
     end
-    o.preview = TesseractPreview:new{runner=o.runner}
-    o.currentTitleParts = Stack:new()
+    o.preview = uilayers.TesseractPreview:new{runner=o.runner}
+    o.currentTitleParts = structures.Stack:new()
     o.titleCallback = nil
     o.zoom = 1.0
-    o.zoomScaleRate = 1.0
+    o.zoomScaleRate = 0.1
     local newTransform = love.math.newTransform
     o.baseTransform = newTransform()
     o.currentTransform = newTransform()
@@ -35,19 +32,23 @@ function AppState:new(o)
 end
 
 
-
+---@param rawParts string|table<integer, string>?
 function AppState:setStateTitle(rawParts)
-    local parts = NiceTable:new{self.baseTitle}
-    if typechecks.is.NonEmptyArray(rawParts) then
+    rawParts = rawParts or self.noDocument
+    local parts = structures.NiceArray:new{self.baseTitle}
+    local tRawPArts = type(rawParts)
+    if tRawPArts == "string" then
+        parts:insert(rawParts)
+    elseif typechecks.is.NonEmptyArray(rawParts) then
+        ---@cast rawParts table<integer, string>
         parts:extend(rawParts)
-    else
-        parts:insert(rawParts or self.noDocument)
+        error("TypeError: expected string or array of them, not " .. tRawPArts)
     end
     local joined = parts:concat(" - ")
     love.window.setTitle(joined)
 end
 
-
+---@param maybeFileName string|Path?
 function AppState:loadFile(maybeFileName)
     local preview = self.preview
     if maybeFileName == nil then
@@ -57,13 +58,13 @@ function AppState:loadFile(maybeFileName)
     end
 end
 
-ZOOM_RATE = 0.1
+---@diagnostic disable-next-line
 state = nil
 
 
 -- [[ Handle mouse wheel (y by default) ]]
 function love.wheelmoved(x, y)
-    local scaled = math.abs(y) * ZOOM_RATE
+    local scaled = math.abs(y) * (state.zoomScaleRate or 0.1)
     local factor = 1.0
     if y < 0 then
         factor = factor - scaled
@@ -78,20 +79,21 @@ function love.wheelmoved(x, y)
 end
 
 
-function love.load(args)
-    local runner = TesseractRunner:new()
-
+function love.load(_)
+    ---@diagnostic disable
+    local runner = tesseract.TesseractRunner:new()
     state = AppState:new{runner=runner}
-    local width, height, mode = love.window.getMode()
-    mode.resizable = true
-    love.window.setMode(width, height, mode)
+    ---@diagnostic enable
+
+    local width, height, _ = love.window.getMode()
+    love.window.setMode(width, height)
     state:loadFile()
 end
 
 
 function love.draw()
     -- Reset colors and visual transform
-    love.graphics.setColor(WHITE)
+    love.graphics.setColor(colors.WHITE)
     love.graphics.replaceTransform(state.currentTransform)
 
     state.preview.layers:draw()

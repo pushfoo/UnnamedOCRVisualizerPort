@@ -1,45 +1,43 @@
 --[[ Color-based conversion, textures, and mapping.
 
 ]]
-require("util")
-require("structures")
-require("localmath")
+local fmt = require("fmt")
+local util = require("util")
+local Class = require("structures").Class
+local localmath = require("localmath")
 
---[[ Convert a luminance value to a normalized RGBA color.
+local lerpTable = localmath.lerpTable
+local colors = {}
 
-If no alpha value is specied, it will default to 1.0.
-
-@param value: A normalized brightness float.
-@param alpha: An opacity value (1.0 if unspecified)
-]]
-function fromLuminance(value, alpha)
+--- Convert a luminance value to a normalized RGBA colors.
+---If no alpha value is specied, it will default to 1.0.
+---@param value number A normalized brightness float.
+---@param alpha number? An opacity value (1.0 if unspecified)
+function colors.fromLuminance(value, alpha)
     alpha = alpha or 1.0 -- Important: 0.0 is truthy in Lua
     return {value, value, value, alpha}
 end
+local fromLuminance = colors.fromLuminance
 
-
-BLACK        = fromLuminance(0.0)
-DARKER_GRAY  = fromLuminance(0.4)
-GRAY         = fromLuminance(0.5)
-LIGHTER_GRAY = fromLuminance(0.6)
-WHITE        = fromLuminance(1.0)
+colors.BLACK        = fromLuminance(0.0)
+colors.DARKER_GRAY  = fromLuminance(0.4)
+colors.GRAY         = fromLuminance(0.5)
+colors.LIGHTER_GRAY = fromLuminance(0.6)
+colors.WHITE        = fromLuminance(1.0)
 
 -- For the "missing" texture
-MAGENTA = {1.0, 0.0, 1.0, 1.0}
+colors.MAGENTA = {1.0, 0.0, 1.0, 1.0}
 
---[[ Ensure a value is a normalized RGBA color.
-
-Behavior depends on the value type passed:
-
-- numbers are treated as gray values with alpha 1.0
-- tables depends on length:
-   - Length 3 is treated as alpha 1.0
-   - Length 4 is returned as-is
-All of the values produce an error.
-
-@param v: A value to make an RGBA normalized color.
-]]
-function asNormColor(v)
+--- Ensure a value is a normalized RGBA colors.
+--- Behavior depends on the value type passed:
+--- - numbers are treated as gray values with alpha 1.0
+--- - tables depends on length:
+---    - Length 3 is treated as alpha 1.0
+---    - Length 4 is returned as-is
+--- All of the values produce an error.
+---@param v table<integer, number>|number
+---@return table<integer, number>
+function colors.asNorm(v)
     local src = type(v)
     if src == "number" then
         return fromLuminance(v)
@@ -56,28 +54,26 @@ function asNormColor(v)
         error("TypeError: expected number or table, not " .. src)
     end
 end
+local asNorm = colors.asNorm
 
-
---[[ Create a checkers-like image
-
-Total return texture size will be twice the checkerSize.
-
-@param colors: A table of foreground and background as any of:
-    - a normalized luminance float
-    - an RGBA norm array table
-@param checkerSize: An integer number for the checker size.
-]]
-function makeCheckers(colors, checkerSize)
-    if #colors ~= 2 then
-        error(fmt.errors.wrong_size({"settings.colors == 2", #colors}))
-    elseif checkerSize ~= nil and type(checkerSize) ~= "number" then
-        error(fmt.error("TypeError", "checkerSize must be a number, not a %s", {type(checkerSize)}))
+--- Create a checkers-like image
+--- Total return texture size will be twice the checkerSize.
+---@param fgAndBg table<integer, table<integer,number>> A table of `{foreground, background}`.
+---@param checkerSize integer? An integer number for the checker size.
+---@return love.Texture
+function colors.makeCheckers(fgAndBg, checkerSize)
+    checkerSize = checkerSize or 8
+    local T_checkerSize = type(checkerSize)
+    if #fgAndBg ~= 2 then
+        error(fmt.errors.wrong_size({"settings.colors == 2", #fgAndBg}))
+    elseif T_checkerSize ~= "number" then
+        error(fmt.error("TypeError", "checkerSize must be a number, not a %s", {checkerSize}))
     elseif checkerSize == nil then
         checkerSize = 8
     end
     local totalSize = checkerSize * 2
-    local fg = asNormColor(colors[1])
-    local bg = asNormColor(colors[2])
+    local fg = asNorm(fgAndBg[1])
+    local bg = asNorm(fgAndBg[2])
 
     local graphics = love.graphics
     local checkerCanvas = graphics.newCanvas(totalSize, totalSize)
@@ -95,19 +91,20 @@ function makeCheckers(colors, checkerSize)
 end
 
 
-NOT_FOUND = makeCheckers({MAGENTA, BLACK})
+colors.checkers = {NOT_FOUND = colors.makeCheckers({colors.MAGENTA, colors.BLACK})}
 
---[[ Map a normalized float value to a color gradient.
-
-This is like the "gradient map" operation in PhotoShop and
-other image editors. The ColorMapper type further down is
-an OOP wrapper around the same thing.
-]]
-function mapNormFloatToColor(normValue, colorTable)
+--- Map a normalized float value to a color gradient.
+--- This is like the "gradient map" operation in PhotoShop and
+--- other image editors. The ColorMapper type further down is
+--- an OOP wrapper around the same thing.
+---@param normValue number A normalized value to map into table space.
+---@param colorTable table<integer, table<integer, number>> A table of color data.
+---@return table<integer, number>
+function colors.mapNormFloatToColor(normValue, colorTable)
     if normValue < 0 then
-        return GRAY
+        return colors.GRAY
     end
-    local mapping = colorTable or DEFAULT_CONF_COLORS
+    local mapping = colorTable or colors.DEFAULT_CONF_COLORS
     local n = #mapping
 
     if normValue >= 1.0 then
@@ -126,7 +123,7 @@ function mapNormFloatToColor(normValue, colorTable)
 end
 
 
-DEFAULT_CONF_COLORS = {
+colors.DEFAULT_CONF_COLORS = {
     {1.0, 0.0, 0.0, 1.0}, -- Red
     {1.0, 1.0, 0.0, 1.0}, -- Yellow
     {0.0, 1.0, 0.0, 1.0}  -- Green
@@ -137,9 +134,15 @@ DEFAULT_CONF_COLORS = {
 This is how we show confidence on screen.
 ]]
 
-ColorMapper = Class({colors={unpack(DEFAULT_CONF_COLORS)}})
+local ColorMapper = Class({colors={unpack(colors.DEFAULT_CONF_COLORS)}})
 
-
+--- Map along the inner table's first color (0.0) to the last (1.0).
+---@param normFloat number Normalized range value.
+---@return table<integer, number>
 function ColorMapper:map(normFloat)
-    return mapNormFloatToColor(normFloat, self.colors)
+    return colors.mapNormFloatToColor(normFloat, self.colors)
 end
+
+colors.ColorMapper = ColorMapper
+
+return colors
