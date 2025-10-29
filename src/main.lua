@@ -8,22 +8,18 @@ local colors     = require("colors")
 local NO_IMAGE = "(No image)"
 AppState = {
     baseTitle = "UnnamedOCRPreview",
-    noDocument = NO_IMAGE
+    noDocument = NO_IMAGE,
+    zoom = 1.0,
+    zoomScaleRate = 0.1,
+    ---@diagnostic disable-next-line
+    runner = tesseract.TesseractRunner:new()
 }
 
 
 function AppState:new(o)
     o = structures.super(self, o)
-    if o.runner == nil then
-        print("no runner provided to app state?")
-        ---@diagnostic disable-next-line
-        o.runner = tesseract.TesseractRunner:new{lang={"eng"}}
-    end
     o.preview = uilayers.TesseractPreview:new{runner=o.runner}
-    o.currentTitleParts = structures.Stack:new()
     o.titleCallback = nil
-    o.zoom = 1.0
-    o.zoomScaleRate = 0.1
     local newTransform = love.math.newTransform
     o.baseTransform = newTransform()
     o.currentTransform = newTransform()
@@ -84,12 +80,8 @@ function love.load(_)
     local runner = tesseract.TesseractRunner:new()
     state = AppState:new{runner=runner}
     ---@diagnostic enable
-
-    local width, height, _ = love.window.getMode()
-    love.window.setMode(width, height)
     state:loadFile()
 end
-
 
 function love.draw()
     -- Reset colors and visual transform

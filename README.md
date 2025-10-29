@@ -42,10 +42,11 @@ For windows or more details, please see the [ImageMagick download page][].
 
 Goals include:
 
--[X] [Tesseract][]-style [TSV][] output
- - [X] Minimal color mapping
- - [X] System filepicker to choose files
--[ ] Minimal UI:
+- [X] Word-level [Tesseract][]-style [TSV][] output
+  - [X] Minimal color mapping
+  - [X] System filepicker to choose files
+- [ ] Character-level Tesseract mapping from the word-level (WIP)
+- [ ] Minimal UI:
   -[ ] Mouse-based gestures
   -[ ] Hot keys
 
