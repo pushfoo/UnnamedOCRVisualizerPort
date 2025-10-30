@@ -69,12 +69,14 @@ if structures.NiceArray.new == nil then
     end
 end
 
+
 if structures.NiceArray.insert == nil then
     ---@generic T
     ---@param self NiceArray<T>
     ---@param t T
     function structures.NiceArray:insert(t) end
 end
+
 
 if structures.NiceArray.concat == nil then
     ---@generic T
@@ -106,6 +108,60 @@ function structures.NiceArray:extend(array)
         end
     end
 end
+
+---A pool of ID numbers as integers.
+---@class IdPool
+local IdPool = {
+    maxElements = math.pow(2, 16) - 1,
+    topColor = 0
+}
+
+function IdPool:new(o)
+    o = o or {}
+    o.unused = --[[@as table<integer, integer>]] o.unused or {}
+    o.used = --[[@as table<integer, boolean>]] o.used or {}
+    return structures.super(o, self)
+end
+
+
+---Get the next available ID, either from unused or by adding one.
+---@return integer
+function IdPool:getNext()
+    ---@diagnostic disable-next-line
+    local unused = self.unused
+    local id = nil
+    if #unused > 0 then
+        id = table.remove(unused,1)
+    else
+        id = self.topColor + 1
+        if id >= self.maxElements then
+            error("IndexError: hit max elements=" .. tostring(id))
+        end
+        self.topColor = id
+    end
+    ---@diagnostic disable-next-line
+    self.used[id] = true
+    return id
+end
+
+
+---Return an ID number to the pool.
+---@param id integer
+function IdPool:putBack(id)
+    ---@diagnostic disable
+    local unused = self.unused
+    local used = self.used
+    ---@diagnostic enable
+    if used[id] == nil then
+        return false
+    elseif used[id] == true then
+        used[id] = false
+        table.insert(unused, id)
+    end
+    return true
+end
+
+structures.IdPool = IdPool
 
 
 ---@generic T
