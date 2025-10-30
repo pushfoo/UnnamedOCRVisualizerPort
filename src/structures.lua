@@ -5,8 +5,11 @@
 * structures.Stack
 ]]
 require("typechecks")
+local class = require "lib.middleclass"
+local typechecks = require "typechecks"
 
 local structures = {}
+
 
 --- Temp OOP helper.
 ---A review of current OOP systems since the last time I
@@ -57,33 +60,34 @@ local Class = structures.Class
 -- A table with support for tableName:insert, etc.
 ---@generic T
 ---@class NiceArray<T> : table<integer, T>
-structures.NiceArray = Class()
+NiceArray = Class()
+
 
 -- begin "trust me bro"
-if structures.NiceArray.new == nil then
+if NiceArray.new == nil then
     ---@generic T
     ---@param o table<integer, T>|NiceArray<T>?
     ---@return NiceArray<T>
-    function structures.NiceArray:new(o)
+    function NiceArray:new(o)
     ---@diagnostic disable-next-line
     end
 end
 
 
-if structures.NiceArray.insert == nil then
+if NiceArray.insert == nil then
     ---@generic T
     ---@param self NiceArray<T>
     ---@param t T
-    function structures.NiceArray:insert(t) end
+    function NiceArray:insert(t) end
 end
 
 
-if structures.NiceArray.concat == nil then
+if NiceArray.concat == nil then
     ---@generic T
     ---@param self NiceArray<T>
     ---@param t T
     ---@return string
-    function structures.NiceArray:concat(t)
+    function NiceArray:concat(t)
     ---@diagnostic disable-next-line
     end
 end
@@ -92,7 +96,7 @@ end
 
 --- Is length zero?
 ---@return boolean
-function structures.NiceArray:isEmpty()
+function NiceArray:isEmpty()
     return #self == 0
 end
 
@@ -101,7 +105,7 @@ end
 ---@generic T
 ---@param self NiceArray<integer,T>
 ---@param array table<integer, T>|NiceArray<integer,T>
-function structures.NiceArray:extend(array)
+function NiceArray:extend(array)
     if array ~= nil then
         for _, value in ipairs(array) do
             table.insert(self, value)
@@ -109,59 +113,132 @@ function structures.NiceArray:extend(array)
     end
 end
 
----A pool of ID numbers as integers.
----@class IdPool
-local IdPool = {
-    maxElements = math.pow(2, 16) - 1,
-    topColor = 0
-}
-
-function IdPool:new(o)
-    o = o or {}
-    o.unused = --[[@as table<integer, integer>]] o.unused or {}
-    o.used = --[[@as table<integer, boolean>]] o.used or {}
-    return structures.super(o, self)
-end
+structures.NiceArray = NiceArray
 
 
----Get the next available ID, either from unused or by adding one.
----@return integer
-function IdPool:getNext()
-    ---@diagnostic disable-next-line
-    local unused = self.unused
-    local id = nil
-    if #unused > 0 then
-        id = table.remove(unused,1)
-    else
-        id = self.topColor + 1
-        if id >= self.maxElements then
-            error("IndexError: hit max elements=" .. tostring(id))
+local Collection = class('Collection')
+structures.Collection = Collection
+
+function Collection:initialize(items)
+    self._items = {}
+    if type(items) == 'array' then
+        for _, value in ipairs(items) do
+            self:insert(value)
         end
-        self.topColor = id
+    elseif items ~= nil then
+        error("TypeError: passed items must be arrays.")
     end
-    ---@diagnostic disable-next-line
-    self.used[id] = true
-    return id
 end
 
 
----Return an ID number to the pool.
----@param id integer
-function IdPool:putBack(id)
-    ---@diagnostic disable
-    local unused = self.unused
-    local used = self.used
-    ---@diagnostic enable
-    if used[id] == nil then
-        return false
-    elseif used[id] == true then
-        used[id] = false
-        table.insert(unused, id)
-    end
-    return true
+function Collection:insert(value)
+    error("AbstractMethod: Collection:insert is abstract, please override it to insert value=" .. tostring(value))
 end
 
-structures.IdPool = IdPool
+function Collection:getn()
+    return #(self._items)
+end
+
+function Collection:isEmpty()
+    local n = #(self._items)
+    return n == 0
+end
+
+
+
+local Set = Collection:subclass('Set')
+
+structures.Set = Set
+
+
+function Set:has(item)
+    return self._items[item] == true
+end
+
+
+function Set:insert(item)
+    local items = self._items
+    if not self:has(item) then
+        items[item] = true
+        return true
+    end
+    return false
+end
+
+function Set:remove(item)
+    local items = self._items
+    if self:has(item) then
+        items[item] = false
+        return true
+    end
+    return false
+end
+
+
+local Queue = Collection:subclass('Queue')
+structures.Queue = Queue
+
+
+function Queue:insert(item)
+    table.insert(self._items, item)
+end
+
+function Queue:append(item)
+    self._items:insert(item)
+end
+
+function Queue:peekNext()
+    return self._items[1]
+end
+
+
+function Queue:getNext()
+    local _items = self._items
+    return table.remove(_items, 1)
+end
+
+
+local BasePool = class('Pool')
+
+function BasePool:initialize()
+    self._idle = Queue:new()
+    self._busy = Set:new()
+    self._pool = Set:new()
+end
+
+-- Override this for specific resource types.
+-- IMPORTANT: This ONLY creates the value!
+function BasePool:_createNew()
+    error("AbstractMethod: BasePool:_createNew() is abstract, please implement it.")
+end
+
+function BasePool:getNext()
+    local nextItem = self._idle:getNext()
+    if nextItem == nil then
+        nextItem = self:_createNew()
+        self._pool:insert(nextItem)
+        self._busy:insert(nextItem)
+    end
+    return nextItem
+end
+
+function BasePool:putBack(item)
+    local pool = self._pool
+    if not pool:has(item) then
+        error("KeyError: item , but got item=" .. tostring(item))
+    end
+    return (
+        self._busy:remove(item)
+        and self._idle:insert(item)
+    )
+end
+
+
+local IdPool = BasePool:subclass('IntPool')
+
+function IdPool:_createNew()
+    return #(self._pool) + 1
+end
 
 
 ---@generic T
