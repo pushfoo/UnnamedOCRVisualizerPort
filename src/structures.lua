@@ -4,13 +4,12 @@
 * NewTable
 * structures.Stack
 ]]
-require("typechecks")
 local class = require "lib.middleclass"
-local typechecks = require "typechecks"
 
 local structures = {}
 
-
+--- Q: is this better for struct-likes with defaults?
+---
 --- Temp OOP helper.
 ---A review of current OOP systems since the last time I
 ---tried Love2D would help a lot. It looks like there may
@@ -26,6 +25,17 @@ function structures.super(self, o, parent)
     ---@diagnostic disable-next-line
     self.__index = self
     return o
+end
+
+
+--- Smaller and simpler than middleclass or similar.
+function structures.struct(self, overrides)
+    local interior = {}
+    if overrides then
+        for k, v in pairs(overrides) do interior[k] = v end
+    end
+    self.__index = self
+    return setmetatable(interior, self)
 end
 
 
@@ -120,16 +130,17 @@ local Collection = class('Collection')
 structures.Collection = Collection
 
 function Collection:initialize(items)
-    self._items = {}
-    if type(items) == 'array' then
-        for _, value in ipairs(items) do
-            self:insert(value)
+    local _items = {}
+    if items then
+        if type(items) ~= 'table' then
+            error("TypeError: passed items must be arrays.")
         end
-    elseif items ~= nil then
-        error("TypeError: passed items must be arrays.")
+        for _, value in ipairs(items) do
+            table.insert(_items, value)
+        end
     end
+    self._items = _items
 end
-
 
 function Collection:insert(value)
     error("AbstractMethod: Collection:insert is abstract, please override it to insert value=" .. tostring(value))
@@ -144,12 +155,27 @@ function Collection:isEmpty()
     return n == 0
 end
 
+function Collection:toPlainTable()
+    error("AbstractMethod: Collection:toPlainTable() is abstract, please override it to convert to a plain table.")
+end
+
+
+-- Skip copying the inner table and get a table:concat(sep) directly.
+---@param sep string a separator value.
+---@return string
+function Collection:concat(sep)
+   return table.concat(self._items, sep)
+end
+
 
 
 local Set = Collection:subclass('Set')
 
 structures.Set = Set
 
+function Set:initialize(collection)
+    Collection:initialize(collection)
+end
 
 function Set:has(item)
     return self._items[item] == true
@@ -158,7 +184,7 @@ end
 
 function Set:insert(item)
     local items = self._items
-    if not self:has(item) then
+    if not items[item] then
         items[item] = true
         return true
     end
@@ -174,6 +200,13 @@ function Set:remove(item)
     return false
 end
 
+function Set:toPlainTable()
+    local t = {}
+    for item, _ in pairs(self._items) do
+        t:insert(item)
+    end
+    return t
+end
 
 local Queue = Collection:subclass('Queue')
 structures.Queue = Queue
@@ -196,6 +229,7 @@ function Queue:getNext()
     local _items = self._items
     return table.remove(_items, 1)
 end
+
 
 
 local BasePool = class('Pool')
@@ -243,50 +277,52 @@ end
 
 ---@generic T
 ---@class Stack<integer,T> : NiceArray<integer,T>
-structures.Stack = Class({}, {__index = structures.NiceArray})
+local Stack = Collection:subclass('Stack')
+structures.Stack = Stack
 
--- begin: "trust me bro"
-if structures.Stack.new == nil then
-    ---@generic T
-    ---@param o table<integer,T>|NiceArray<integer,T>?
-    ---@return Stack<T>
-    function structures.Stack:new(o)
-    ---@diagnostic disable-next-line
-    end
-end
--- end: "trust me bro"
+-- -- begin: "trust me bro"
+-- if structures.Stack.new == nil then
+--     ---@generic T
+--     ---@param o table<integer,T>|NiceArray<integer,T>?
+--     ---@return Stack<T>
+--     function structures.Stack:new(o)
+--     ---@diagnostic disable-next-line
+--     end
+-- end
+-- -- end: "trust me bro"
 
 ---@generic T
 ---@param self Stack<T>
 ---@return T?
-function structures.Stack:peek()
-    local n = #self
-    local peeked = nil
+function Stack:peek()
+    ---@diagnostic disable-next-line
+    local items = self._items
+    local n = #items
     if n > 0 then
-        peeked = self[n]
+        return items[n]
     end
-    return peeked
 end
 
 ---@generic T
 ---@param self Stack<T>
 ---@param item T
 ---@return nil
-function structures.Stack:push(item)
-    table.insert(self, item)
+function Stack:push(item)
+    ---@diagnostic disable-next-line
+    table.insert(self._items, item)
 end
 
 ---@generic T
 ---@param self Stack<T>
 ---@return T?
-function structures.Stack:pop()
-    if #self == 0 then
+function Stack:pop()
+    ---@diagnostic disable-next-line
+    local items = self._items
+    local n = #items
+    if n < 1 then
         error("structures.StackUnderflow: can't pop from empty stack!")
     end
-    local n = self:getn()
-    local popped = self[n]
-    self[n] = nil
-    return popped
+    return table.remove(items, n)
 end
 
 

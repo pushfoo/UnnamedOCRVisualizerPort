@@ -2,21 +2,26 @@
 local fmt = require("fmt")
 local util = require("util")
 local structures = require("structures")
-local Class, NiceArray = structures.Class, structures.NiceArray
 local typechecks = require("typechecks")
-local rect = require("rect")
 
 local colors = require("colors")
 local imageconvert = require("imageconvert")
 local tesseract = require("tesseract")
+
 local graphics = love.graphics
+local class = require "lib.middleclass"
+local NiceArray = structures.NiceArray
 
 
+
+-- Our submodule
 local uilayers = {}
+
+
 --[[ Convert a raw Tesseract TSV to {rect, color} data.
 
 ]]
-local function _getWordPolygonsFromTesseractData(tsvData)
+local _getWordPolygonsFromTesseractData = function(tsvData)
     local cells = NiceArray:new()
     local mapper = colors.ColorMapper:new()
     for i, item in ipairs(tsvData) do
@@ -37,72 +42,203 @@ local function _getWordPolygonsFromTesseractData(tsvData)
 end
 
 
-uilayers.CheckersLayer = Class({
-    ["colors"] = {colors.LIGHTER_GRAY, colors.DARKER_GRAY},
-    checkerSize = 8
-})
+local BaseTextureLayer = class('BaseTextureLayer')
+uilayers.BaseTextureLayer = BaseTextureLayer
 
 
-function uilayers.CheckersLayer:new(o)
-    o = setmetatable(o or {}, self)
-    o.__index = self
-    o.totalSize = o.checkerSize * 3
-    if o.texture == nil then
-        o.texture = colors.makeCheckers(o.colors, o.checkerSize)
+--- Get a new Quad for the given texture.
+--- If onyl a texture is given, it sets the width to scaled pixel dimensions.
+---@param texture love.Texture|love.Image
+---@param x number?
+---@param y number?
+---@param width number?
+---@param height number?
+---@param refX number?
+---@param refY number?
+---@return love.Quad
+local function _getQuadForImage(texture, x, y, width, height, refX, refY)
+    if texture == nil then
+        error("TypeError: expected a texture-like, not nil")
     end
-    -- Fit to 1080p as a "good enough" initial allocation
-    o.quad = graphics.newQuad(
-        0, 0,
-        1920 + o.totalSize, 1080 + o.totalSize,
-        o.totalSize, o.totalSize
-    )
-    return o
-end
-
-
-function uilayers.CheckersLayer:fitToViewport(left, top, bottom, right)
-    local totalSize = self.totalSize
-    self.quad:setViewport(left, top, bottom, right, totalSize, totalSize)
-end
-
-
--- TODO: finish zooming.
--- function uilayers.CheckersLayer:setZoom(zoomQuantity)
-
--- end
-
-
-function uilayers.CheckersLayer:draw(size)
-    local w = nil
-    local h = nil
-    if size == nil then
-        w, h = graphics.getDimensions()
-    elseif type(size) == "table" and #size == 2 then
-        w = size[1]
-        h = size[2]
+    x = --[[@as number]] x or 0
+    y = --[[@as number]] y or 0
+    if width == nil or height == nil then
+        local screenW, screenH = texture:getPixelDimensions()
+        width  = --[[@as number]] width or screenW
+        height = --[[@as number]] height or screenH
+    end
+    local quad = nil
+    if refX == nil or refY == nil then
+        quad = graphics.newQuad(x, y, width, height, texture)
     else
-        error("TypeError: size=" .. type(size) .. ", neither nil nor a table of length 2")
+        quad = graphics.newQuad(x, y, width, height, refX, refY)
     end
-    self:fitToViewport(0,0,w,h)
-    graphics.draw(self.texture, self.quad)
+    return quad
 end
 
 
-uilayers.ImageLayer = {}
-
-function uilayers.ImageLayer:new(o)
-    o = structures.super(self, o)
-    self.quad = graphics.newQuad(0, 0, 0, 0, 0, 0)
-    if o.image then
-        self:setImage(self.image)
+--- Set up a new texture layer.
+--- NOTE: use BaseTextureLayer.initalize(self, ...) in subclasses
+--- @param texture love.Texture|love.Image?
+--- @param options table<string, any>?
+function BaseTextureLayer:initialize(texture, options)
+    options = options or {}
+    self._quad = options.quad
+    self._texture = texture -- What to draw into it
+    -- Quad:getViewport doesn't get the reference values.
+    -- Caches Texture:getViewport() + texture sX, sY values
+    -- self._viewport = {0,0,0,0,0,0} -- Where to draw stuff
+    if texture and self._quad == nil then
+        self._quad = _getQuadForImage(texture)
     end
-    return o
 end
 
 
-uilayers.BBoxLayer = {}
+function BaseTextureLayer:getTexture()
+    return self._texture
+end
 
-function uilayers.BBoxLayer:new(o)
+
+function BaseTextureLayer:setTexture(texture, options)
+    options = options or {}
+    local quad = options.quad or self._quad
+    local forceRefresh = options.forceRefresh or false
+    if forceRefresh or self._texture ~= texture then
+        self._texture = texture
+        if quad ~= self._quad then
+            if quad == nil then
+                quad = _getQuadForImage(texture)
+            end
+        else
+            -- viewport return doesn't include the texture reference dims
+            local x, y, w, h = quad:getViewport()
+            local texW, texH = texture:getDimensions()
+            quad:setViewport(x, y, w, h, texW, texH)
+        end
+    end
+end
+
+
+--- Set the viewport to {left, top, ...}.
+---@param left number Leftmost edge of vieport rect
+---@param top number Leftmost edge of viewport rect
+---@param width number? The viewport width
+---@param height number? The gvieport height
+---@param sX number? Texture's reference coordinate values?
+---@param sY number? Texture reference coordinate values?
+function BaseTextureLayer:setViewport(left, top, width, height, sX, sY)
+    local problem = typechecks.err.checkSizeDimensions(
+        {["left"]=left},
+        {["top"]=top}
+    )
+    if problem then
+        error(problem)
+    end
+
+    if width == nil or height == nil then
+        local screenW, screenH = graphics:getPixelDimensions()
+        width = width or screenW
+        height = height or screenH
+    end
+    if sX == nil or sY == nil then
+        local tW, tH = self._texture:getDimensions()
+        sX = --[[@as number]] sX or tW
+        sY = --[[@as number]] sY or tH
+    end
+    -- local viewport = {left, top, width, height, sX, sY}
+    self._quad:setViewport(left, top, width, height, sX, sY)
+    -- self._viewport = viewport
+end
+
+
+function BaseTextureLayer:draw()
+    local texture = self._texture
+    local quad = self._quad
+    if texture ~= nil and quad ~= nil then
+        graphics.draw(texture, quad)
+    end
+end
+
+
+local CheckersLayer = BaseTextureLayer:subclass('CheckersLayer')
+uilayers.CheckersLayer = CheckersLayer
+
+--- Create a checkers layer which
+function CheckersLayer:initialize(colorsOrTexture)
+    local T_colorsOrTexture = type(colorsOrTexture)
+    local texture = colors.checkers.ALPHA
+    local colors = colors.ALPHA_GRAY_COLORS
+
+    if colorsOrTexture and T_colorsOrTexture == 'table' then
+        if #colorsOrTexture ~= 2 then
+            error(fmt.errors.typeError("Expected table of {fg, bg} but got %s'", {T_colorsOrTexture}))
+        end
+        texture = colors.makeCheckers(colorsOrTexture)
+        ---@cast colorsOrTexture table<integer, table<integer, number>>
+        colors = colorsOrTexture
+    end
+    local screenW, screenH = graphics.getPixelDimensions()
+    local refW, refH = texture:getDimensions()
+    local quad = graphics.newQuad(0,0,screenW, screenH, refW, refH)
+    --- Important: can't BaseTextureLayer:initialize b/c:
+    --- 1. it'd pass its own value as self
+    --- 2. we need the object, not the class as a value
+    BaseTextureLayer.initialize(self, texture, {["quad"]=quad})
+    self._colors = colors
+end
+
+
+local ImageLayer = BaseTextureLayer:subclass('ImageLayer')
+uilayers.ImageLayer = ImageLayer
+
+
+--- Create an image layer.
+---@param image love.Image|love.Texture?
+---@param quad love.Quad?
+function ImageLayer:initialize(image, quad)
+    local options = {["quad"]=quad}
+    BaseTextureLayer.initialize(self, image, options)
+    --self:setImage(self.image)
+end
+
+
+--- Show an image, or set to show nothing.
+---@param image love.Image|love.Texture?
+function ImageLayer:setImage(image)
+    if self._texture ~= image then
+        self._texture = image
+    end
+    if image then
+        self._quad = _getQuadForImage(image)
+    end
+end
+
+
+---@param filepath string|Path
+function ImageLayer:loadImage(filepath)
+    local image = imageconvert.load_image(filepath)
+    if image then
+        self:setImage(image)
+    end
+end
+
+
+---@return table<integer, number>?
+function ImageLayer:getImageSize()
+    local dimensions = nil
+    local image = self._texture
+    if image then
+        dimensions = {image:getDimensions()}
+    end
+    return dimensions
+end
+
+
+local BBoxLayer = {}
+uilayers.BBoxLayer = BBoxLayer
+
+
+function BBoxLayer:new(o)
     o = structures.super(self, o)
     if o.runner == nil then
         o.runner = tesseract.TesseractRunner{}
@@ -112,13 +248,15 @@ function uilayers.BBoxLayer:new(o)
 end
 
 
-function uilayers.BBoxLayer:renderBBoxes(filename)
+--- Load bboxes for a given filename via the Tesseract runner.
+---@param filename string|Path
+function BBoxLayer:renderBBoxes(filename)
     local tsvDataRaw = self.runner:getWords(filename)
     self.cells = _getWordPolygonsFromTesseractData(tsvDataRaw)
 end
 
 
-function uilayers.BBoxLayer:draw()
+function BBoxLayer:draw()
     if self.cells == nil then
         return
     end
@@ -128,38 +266,6 @@ function uilayers.BBoxLayer:draw()
         graphics.polygon("line", vertices)
     end
     graphics.setColor(colors.WHITE)
-end
-
-
-function uilayers.ImageLayer:setImage(image)
-    local width, height = image:getPixelDimensions()
-    self.quad:setViewport(0, 0, width, height, width, height)
-    if self.image ~= image then
-        self.image = image
-    end
-end
-
-
-function uilayers.ImageLayer:loadImage(filename)
-    local image = imageconvert.load_image(filename)
-    if image then
-        self:setImage(image)
-    end
-end
-
-
-function uilayers.ImageLayer:getImageSize()
-    local dimensions = nil
-    local image = self.texture
-    if image then dimensions = image:getDimensions() end
-    return dimensions
-end
-
-
-function uilayers.ImageLayer:draw()
-    if self.image then
-        graphics.draw(self.image, self.quad)
-    end
 end
 
 
@@ -197,6 +303,8 @@ function DocumentLayers:get(nameOrIndex)
 end
 
 
+---@param name string
+---@param layer any
 function DocumentLayers:add(name, layer)
     local byName = self.byName
     if byName[name] then
@@ -210,7 +318,7 @@ end
 
 function DocumentLayers:draw()
     for _, layerData in ipairs(self.layers) do
-        local name = layerData.name
+        -- local name = layerData.name
         local layer = layerData.layer
         if layer then
             layer:draw()

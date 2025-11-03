@@ -1,25 +1,21 @@
-local env = require("env")
 local fmt = require("fmt")
-local util = require("util")
+local errors = fmt.errors
 
 local argparse = {}
 
 love.filesystem.setSymlinksEnabled(true)
 
+---Compat shim aroung the env.Path type.
+---@param path string|Path
+---@return table<string, any>?
 argparse.file = function(path)
-    local info = love.filesystem.getInfo(path, {type="file"})
-    if info ~= nil then
-        return info
-    else
-        return nil
-    end
+    return love.filesystem.getInfo(tostring(path), {type="file"})
 end
 
 
 argparse.State = {}
 
 function argparse.State:new(o)
-    print("parse state?")
     o = o or {}
     if o.args == nil then
         o.args = {}
@@ -27,7 +23,7 @@ function argparse.State:new(o)
     setmetatable(o, self)
     self.__index = self
     if o.args == nil then
-        error(fmt.errors.required_value({fmt.quote("args")}))
+        error(errors.valueError("args are required, but got nil"))
     end
     o.n_args = #(o.args)
     o.current = o.current or 1
@@ -42,16 +38,16 @@ end
 function argparse.State:consume(n)
     local afterN = o.current + n
     if afterN > o.n_args then
-        error(fmt.errors.index_error({n, o.current, o.n_args}))
+        error(errors.ValueError("too many entries (expected %i, but got %i): %s", {n, o.current, table.concat(o.args, ", ")}))
     end
     o.current = afterN
 end
 
 
-argparse.error = fmt.getErrorTemplater("ParseError", "cannot parse %s from \"%s\"")
+-- arssparse.error = fmt.getErrorTemplater("ParseError", "cannot parse %s from \"%s\"")
 
 
-function getFlagType(argvEntry)
+function argparse.getFlagType(argvEntry)
     if argvEntry == nil then
         return nil
     else

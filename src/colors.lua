@@ -1,7 +1,7 @@
 --[[ Color-based conversion, textures, and mapping.
 
 ]]
-local fmt = require("fmt")
+local fmt_errors = require("fmt").errors
 local util = require("util")
 local Class = require("structures").Class
 local localmath = require("localmath")
@@ -19,14 +19,47 @@ function colors.fromLuminance(value, alpha)
 end
 local fromLuminance = colors.fromLuminance
 
+-- Some vaguely useful monochorome constants (needs perceptual re-spacing)
 colors.BLACK        = fromLuminance(0.0)
 colors.DARKER_GRAY  = fromLuminance(0.4)
 colors.GRAY         = fromLuminance(0.5)
 colors.LIGHTER_GRAY = fromLuminance(0.6)
 colors.WHITE        = fromLuminance(1.0)
 
+-- Commonly used values for color mapping
+colors.RED    = {1.0, 0.0, 0.0, 1.0}
+colors.YELLOW = {1.0, 1.0, 0.0, 1.0}
+colors.GREEN  = {0.0, 1.0, 0.0, 1.0}
+
+
 -- For the "missing" texture
 colors.MAGENTA = {1.0, 0.0, 1.0, 1.0}
+
+--- Return nil or an error string if not "byte" or "norm"
+---@param maybeByteOrNorm any
+---@return string?
+local _checkChannelMode = function(maybeByteOrNorm)
+    local problemType = nil
+    local problem = nil
+    if type(maybeByteOrNorm) ~= 'string' then
+        problemType = fmt_errors.typeError
+    elseif maybeByteOrNorm ~= 'byte' and maybeByteOrNorm ~= 'norm' then
+        problemType = fmt_errors.valueError
+    end
+    if problemType then
+        problem = problemType('fromType==%s, but it must be "byte", "norm", or nil (defaults to "byte)', {tostring(maybeByteOrNorm)})
+    end
+    return problem
+end
+
+--- Channel data signals to tell color conversion what to do.
+---@alias ChannelType "byte"|"norm"
+local ChannelType = {
+    BYTE = 'byte',
+    NORM = 'norm'
+}
+colors.ChannelType = ChannelType
+
 
 --- Ensure a value is a normalized RGBA colors.
 --- Behavior depends on the value type passed:
@@ -35,25 +68,51 @@ colors.MAGENTA = {1.0, 0.0, 1.0, 1.0}
 ---    - Length 3 is treated as alpha 1.0
 ---    - Length 4 is returned as-is
 --- All of the values produce an error.
----@param v table<integer, number>|number
+---@param colorRaw table<integer, number>|number
+---@param fromType ChannelType?
 ---@return table<integer, number>
-function colors.asNorm(v)
-    local src = type(v)
-    if src == "number" then
-        return fromLuminance(v)
-    elseif src == "table" then
-        local vN = #v
-        if vN == 3 then
-            return {unpack(v), 1.0}
-        elseif vN == 4 then
-            return v
+function colors.asNorm(colorRaw, fromType)
+    if fromType == nil then
+        fromType = ChannelType.NORM
+    else
+        local problem = _checkChannelMode(fromType)
+        if problem then
+            error(problem)
+        end
+    end
+    local T_colorRaw = type(colorRaw)
+    local converted = nil
+
+    if T_colorRaw == "number" then
+        converted = fromLuminance(colorRaw)
+    elseif T_colorRaw == "table" then
+        local n_colorRaw = #colorRaw
+        if n_colorRaw == 3 then
+            converted = {unpack(colorRaw), 1.0}
+        elseif n_colorRaw == 4 then
+            converted = colorRaw
         else
-            error("ValueError: expected table to be length 3 or 4")
+            error(fmt_errors.valueError("expected #colorRaw == 3 or 4, but got #colorRaw=%i", {#colorRaw}))
+        end
+        local maxChannel = 255
+        local scaleBy = 255.0
+        if fromType == ChannelType.NORM then
+            maxChannel = 1.0
+            scaleBy = 1.0
+        end
+        for i = 1,n_colorRaw do
+            local dim = converted[i]
+            if dim < 0.0 or dim > maxChannel then
+                error(fmt_errors.valueError("colorRaw[%i]==%d with %s (must be 0 <= dim <= %d)", {i, dim, fromType, maxChannel}))
+            end
+            converted[i] = dim / scaleBy
         end
     else
-        error("TypeError: expected number or table, not " .. src)
+        error(fmt_errors.typeError("colorRaw expects number or table, but got %s", {tostring(colorRaw)}))
     end
+    return converted
 end
+
 local asNorm = colors.asNorm
 
 --- Create a checkers-like image
@@ -65,9 +124,9 @@ function colors.makeCheckers(fgAndBg, checkerSize)
     checkerSize = checkerSize or 8
     local T_checkerSize = type(checkerSize)
     if #fgAndBg ~= 2 then
-        error(fmt.errors.wrong_size({"settings.colors == 2", #fgAndBg}))
+        error(fmt_errors.typeError("creating checkers requires 2 items, not %i", {#fgAndBg}))
     elseif T_checkerSize ~= "number" then
-        error(fmt.error("TypeError", "checkerSize must be a number, not a %s", {checkerSize}))
+        error(fmt_errors.typeError("checkerSize must be a number, not a %s", {checkerSize}))
     elseif checkerSize == nil then
         checkerSize = 8
     end
@@ -90,8 +149,14 @@ function colors.makeCheckers(fgAndBg, checkerSize)
     return checkerImage
 end
 
+colors.NOT_FOUND_COLORS = {colors.MAGENTA, colors.BLACK}
+colors.ALPHA_GRAY_COLORS = {colors.LIGHTER_GRAY, colors.DARKER_GRAY}
+colors.checkers = {
+    NOT_FOUND = colors.makeCheckers(colors.NOT_FOUND_COLORS),
+    ALPHA = colors.makeCheckers(colors.ALPHA_GRAY_COLORS)
+}
 
-colors.checkers = {NOT_FOUND = colors.makeCheckers({colors.MAGENTA, colors.BLACK})}
+
 
 --- Map a normalized float value to a color gradient.
 --- This is like the "gradient map" operation in PhotoShop and
@@ -121,12 +186,10 @@ function colors.mapNormFloatToColor(normValue, colorTable)
     local result = lerpTable(baseColor, endColor, towardNext)
     return result
 end
-
-
 colors.DEFAULT_CONF_COLORS = {
-    {1.0, 0.0, 0.0, 1.0}, -- Red
-    {1.0, 1.0, 0.0, 1.0}, -- Yellow
-    {0.0, 1.0, 0.0, 1.0}  -- Green
+    colors.RED,
+    colors.YELLOW,
+    colors.GREEN
 }
 
 --[[ Has a :map(floatNum) returning an RGBA array table.

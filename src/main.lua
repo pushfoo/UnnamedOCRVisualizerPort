@@ -16,10 +16,15 @@ AppState = {
 }
 
 
+
+
 function AppState:new(o)
     o = structures.super(self, o)
     o.preview = uilayers.TesseractPreview:new{runner=o.runner}
     o.titleCallback = nil
+    local w, h, _ = love.window.getMode()
+    o.uiCanvas = love.graphics.newCanvas(w, h)
+
     local newTransform = love.math.newTransform
     o.baseTransform = newTransform()
     o.currentTransform = newTransform()
