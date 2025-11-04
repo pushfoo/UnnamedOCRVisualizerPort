@@ -229,23 +229,10 @@ buildOutErrorNames(
     'Type',
     'Value',
     'Index',
-    'WrongSize'
+    'WrongSize',
+    'NoExecutable',
+    'NotImplemented'
 )
 
-
--- fmt.errors.typeError = getNamedErrorFunction('TypeError')
--- fmt.errors.valueError = getNamedErrorFunction('ValueError')
--- fmt
--- function fmt.errors.typeError(template, args)
---     return fmt.error("TypeError", template, args)
--- end
---
--- function fmt.errors.valueError(template, args)
---     return fmt.error("ValueError", template, args)
--- end
---
--- function fmt.errors.wrongSize(template, args)
---     return fmt.error("WrongSizeError", template, args)
--- end
 
 return fmt

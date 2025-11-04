@@ -38,39 +38,33 @@ function structures.struct(self, overrides)
     return setmetatable(interior, self)
 end
 
+local function _metaOnly(t, mt)
+    t = t or {}
+    mt = mt or {__index = table}
+    t.__index = t
+    return setmetatable(t, mt)
+end
 
---- Too-clever class-like objects (TODO: replace ASAP)
----@class Class
-structures.Class = setmetatable({
-        metaOnly = function(t, mt)
-            t = t or {}
-            mt = mt or {__index = table}
-            t = setmetatable(t, mt)
-            t.__index = t
-            return t
-        end,
-        createSubtype = function(core, parent)
+local _mt = {}
+function _mt:__call(t, mt)
+    local created = _metaOnly(t, mt)
+    if created.new == nil then
+        function created:new(o)
+            return setmetatable(o or {}, self)
+        end
+    end
+    return created
+end
 
-        end
-    }, {
-        -- Are we a function? Close enough.
-        __call = function(self, t, mt)
-            local created = structures.Class.metaOnly(t, mt)
-            if created.new == nil then
-                function created:new(o)
-                    return setmetatable(o or {}, self)
-                end
-            end
-            return created
-        end
-    }
-)
-local Class = structures.Class
+--- Too-clever class-like objects (legacy)
+---@class _Class
+local _Class = setmetatable({metaOnly = _metaOnly}, _mt)
+
 
 -- A table with support for tableName:insert, etc.
 ---@generic T
 ---@class NiceArray<T> : table<integer, T>
-NiceArray = Class()
+NiceArray = _Class()
 
 
 -- begin "trust me bro"

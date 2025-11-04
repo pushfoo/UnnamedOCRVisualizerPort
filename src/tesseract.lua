@@ -5,10 +5,11 @@ See the following to learn more:
 - tesseract --help-extra output
 - the comments below
 ]]
-
 require("fmt")
 local util = require("util")
 local env = require("env")
+local Runner = env.Runner
+
 local structures = require("structures")
 local NiceArray = structures.NiceArray
 
@@ -59,16 +60,24 @@ function tesseract.getLanguages(executablePath)
 end
 
 
----@class TesseractRunner
 --- Lang will be concatenated with + signs between it per the
 --- -l flag's documentation. Tesseract is auto-probed yet can
 --- be overriden. Page segmentation is a bit more complicated
 --- and may need some automation smarts around it later.
-tesseract.TesseractRunner = env.makeRunnerClass("tesseract", {
-    lang=tesseract.getLanguages(), -- default to English or w/e's installed?
-    page_segementation_mode = tesseract.PAGE_SEGMENTATION_MODE.AUTO,
-})
+---@class TesseractRunner
+---@diagnostic disable-next-line
+local TesseractRunner = Runner:subclass("TesseractRunner")
 
+
+function TesseractRunner:initialize(lang, which)
+    ---@diagnostic disable-next-line
+    Runner.initialize(self, which or "tesseract")
+    if lang == nil then
+        lang = tesseract.getLanguages()
+    end
+    self.lang = lang
+    self.page_segementation_mode = tesseract.PAGE_SEGMENTATION_MODE.AUTO
+end
 
 -- Fast and simple psuedo-set.
 local IS_RECT_ARG = {left = true, top=true, width=true, height=true}
@@ -111,7 +120,7 @@ tesseract.TESSERACT_OP_MODES = {
 ---Get either nil or the langs to use joined by +.
 ---@param langs string|table
 ---@returns table?
-function tesseract.TesseractRunner.concatLangs(langs)
+function TesseractRunner.concatLangs(langs)
     local asTable = util.tableWrap.nonNil(langs)
     local joined = nil
     if asTable then
@@ -124,7 +133,7 @@ end
 --- Encapsulate failure and erroring when parts are missing.
 ---@param languages table<integer, string>|string? Defaults to preloaded languages.
 ---@return ... string?,string
-function tesseract.TesseractRunner:getExecAndLangs(languages)
+function TesseractRunner:getExecAndLangs(languages)
     ---@diagnostic disable
     local which
     if self.which == nil then
@@ -133,7 +142,7 @@ function tesseract.TesseractRunner:getExecAndLangs(languages)
         which = self.which
     end
     languages = languages or self.lang
-    local useLanguages = tesseract.TesseractRunner.concatLangs(languages)
+    local useLanguages = TesseractRunner.concatLangs(languages)
     ---@diagnostic enable
     return which, useLanguages
 end
@@ -149,7 +158,7 @@ local CHAR_BOX_HEADERS = {
 ---@param imSize table<integer, number> How big it is.
 ---@param languages? table<integer, string>
 ---@return NiceArray<integer,table<string, string|Rect>>
-function tesseract.TesseractRunner:getCharBoxes(path, imSize, languages)
+function TesseractRunner:getCharBoxes(path, imSize, languages)
     ---@diagnostic disable-next-line
     local which, useLanguages = self:getExecAndLangs(self.which, languages)
     local height = imSize[2]
@@ -187,7 +196,7 @@ end
 ---
 ---@param path string|Path The image file to load.
 ---@param languages table Override the default language list.
-function tesseract.TesseractRunner:getWords(path, languages)
+function TesseractRunner:getWords(path, languages)
     local which, useLanguages = self:getExecAndLangs(languages)
     print("o", which, useLanguages)
     local cmdRaw = string.format(
@@ -200,5 +209,7 @@ function tesseract.TesseractRunner:getWords(path, languages)
     end
     return bboxes
 end
+
+tesseract.TesseractRunner = TesseractRunner
 
 return tesseract

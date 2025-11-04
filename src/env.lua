@@ -1,8 +1,10 @@
 --- Helpers for environment probing and execution.
 
+local class = require "lib.middleclass"
+local fmt = require("fmt")
 local util = require("util")
-local structures = require("structures")
-local Class, NiceArray = structures.Class, structures.NiceArray
+
+local NiceArray = require("structures").NiceArray
 
 local env = {}
 
@@ -376,31 +378,37 @@ function env.run.getOutputAfterNLines(cmd, skipN)
 end
 
 
--- Helper for cli application runners.
-local defaultCommands = {}
-function env.makeRunnerClass(
-    commandName,
-    defaults,
-    metatable
-)
-    if defaultCommands[commandName] then
-        error(string.format("NameConflict: Already declared a class for '%s'", commandName))
-    end
+---@class Runner
+---@overload fun():Runner
+---@field command string
+---@field path Path
+---@field version string|table<integer, integer>?
+local Runner = class('Runner')
 
-    defaults = defaults or {}
-    if defaults.which == nil then
-       defaults.which = env.which(commandName)
+---A generic OOP shell over a CLI command.
+---@param command string A command name.
+---@param path string|Path? A specific path for it.
+---@param version string|table<integer,number>? The version number
+function Runner:initialize(command, path, version)
+    local e = fmt.errors
+    if type(command) ~= "string" then
+        error(e.typeError("command name must be a string"))
     end
-    if defaults.version == nil then
-        defaults.version = env.versionFor(commandName)
+    self.command = command
+    if path == nil then
+        path = env.which(command)
     end
-
-    local command = Class(defaults, metatable)
-    defaultCommands[commandName] = command
-
-    return command
+    if path == nil then
+        error(e.noExecutableError("could not find a valid path for \"%s\"", {command}))
+    end
+    self.which = path
+    if version == nil then
+        version = env.versionFor(command)
+    end
+    self.version = version
 end
 
+env.Runner = Runner
 
 --[[ Backport stub for 11.5 / some IDEs to stop complaining. ]]
 if love.window.showFileDialog == nil then
@@ -409,9 +417,9 @@ if love.window.showFileDialog == nil then
     ---@param callback function
     love.window.showFileDialog = function(action, callback)
         if action ~= "openfile" then
-            error("ValueError: this is a partial stub. Only openfile is supported, not " .. action)
+            fmt.errors.notImplementedError("Only openfile is supported, not %a", {action})
         end
-        local filename = env.run.readString(string.format("zenity --file-selection"))
+        local filename = env.run.readString("zenity --file-selection")
         return callback(filename)
     end
 end
