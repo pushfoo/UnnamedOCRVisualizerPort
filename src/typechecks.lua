@@ -111,4 +111,26 @@ local function invalidSizeDimensions(...)
 end
 typechecks.err.invalidSizeDimensions = invalidSizeDimensions
 
+---Return nil or an error string explaining how it's not an array of size n.
+---@param name string
+---@param arr any
+---@param n integer
+---@return string?
+function typechecks.err.notArrayOfLength(name, arr, n)
+    local e = fmt.errors
+    local T_arr = type(arr)
+    local problem = nil
+    if T_arr ~= "table" then
+        problem = e.typeError
+    elseif #arr ~= n then
+        problem = e.valueError
+    end
+    if problem then
+        return problem(
+            "expected array #%s == %i, but got a %s",
+            {name, n, T_arr}
+        )
+    end
+end
+
 return typechecks

@@ -3,8 +3,9 @@
 ]]
 local fmt_errors = require("fmt").errors
 local util = require("util")
-local Class = require("structures").Class
+local class = require("lib.middleclass")
 local localmath = require("localmath")
+local typechecks = require("typechecks")
 
 local lerpTable = localmath.lerpTable
 local colors = {}
@@ -53,7 +54,6 @@ local _checkChannelMode = function(maybeByteOrNorm)
 end
 
 --- Channel data signals to tell color conversion what to do.
----@alias ChannelType "byte"|"norm"
 local ChannelType = {
     BYTE = 'byte',
     NORM = 'norm'
@@ -69,7 +69,7 @@ colors.ChannelType = ChannelType
 ---    - Length 4 is returned as-is
 --- All of the values produce an error.
 ---@param colorRaw table<integer, number>|number
----@param fromType ChannelType?
+---@param fromType "byte"|"norm"?
 ---@return table<integer, number>
 function colors.asNorm(colorRaw, fromType)
     if fromType == nil then
@@ -115,6 +115,7 @@ end
 
 local asNorm = colors.asNorm
 
+
 --- Create a checkers-like image
 --- Total return texture size will be twice the checkerSize.
 ---@param fgAndBg table<integer, table<integer,number>> A table of `{foreground, background}`.
@@ -122,14 +123,13 @@ local asNorm = colors.asNorm
 ---@return love.Texture
 function colors.makeCheckers(fgAndBg, checkerSize)
     checkerSize = checkerSize or 8
-    local T_checkerSize = type(checkerSize)
-    if #fgAndBg ~= 2 then
-        error(fmt_errors.typeError("creating checkers requires 2 items, not %i", {#fgAndBg}))
-    elseif T_checkerSize ~= "number" then
-        error(fmt_errors.typeError("checkerSize must be a number, not a %s", {checkerSize}))
-    elseif checkerSize == nil then
-        checkerSize = 8
-    end
+    local e = typechecks.err
+    local problem = (
+        e.invalidSizeAxis("checkerSize", checkerSize)
+        or e.notArrayOfLength("fgAndBg", fgAndBg, 2)
+    )
+    if problem then error(problem) end
+
     local totalSize = checkerSize * 2
     local fg = asNorm(fgAndBg[1])
     local bg = asNorm(fgAndBg[2])
@@ -146,6 +146,7 @@ function colors.makeCheckers(fgAndBg, checkerSize)
     local checkerImage = util.graphics.textureFromCanvas(checkerCanvas)
     checkerImage:setWrap("repeat", "repeat")
     checkerImage:setFilter("linear")
+
     return checkerImage
 end
 
@@ -196,8 +197,16 @@ colors.DEFAULT_CONF_COLORS = {
 
 This is how we show confidence on screen.
 ]]
+local ColorMapper = class('ColorMapper')
 
-local ColorMapper = Class({colors={unpack(colors.DEFAULT_CONF_COLORS)}})
+function ColorMapper:initalize(range)
+    if range then
+        self.colors = range
+    else
+        self.colors = {unpack(range.DEFAULT_CONF_COLORS)}
+    end
+end
+
 
 --- Map along the inner table's first color (0.0) to the last (1.0).
 ---@param normFloat number Normalized range value.
