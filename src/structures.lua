@@ -198,6 +198,7 @@ function BiMap:initialize(elements)
     local keyToIndex = {}
     local valueToIndex = {}
     local insertionOrder = self._items
+    print("sert", insertionOrder)
     self.keyToIndex = keyToIndex
     self.valueToIndex = valueToIndex
     local function _dupeFmt(what, k, v, oldK, oldV)
@@ -208,6 +209,9 @@ function BiMap:initialize(elements)
     end
     self.nPairs = 0
     local function _addTo(k, v)
+        if k == nil and v == nil then
+            return
+        end
         local oldKeyIndex = keyToIndex[v]
         local oldValueIndex = keyToIndex[k]
         if oldKeyIndex ~= nil then
@@ -220,7 +224,8 @@ function BiMap:initialize(elements)
         local asPair = {k, v}
         print("pair", _prettyPair(asPair))
         table.insert(insertionOrder, {k, v})
-        local n = table.getn(insertionOrder)
+        local n = self.nPairs + 1
+        print("nn", k, v, n)
         keyToIndex[k] = n
         valueToIndex[v] = n
         self.nPairs = n
@@ -399,16 +404,19 @@ function BiMap:__pairs()
     local t = self._items
     local n = #t
     local i = 0
-    local function it()
-        i = i + 1
-        if i <= n then
-            local pair = t[i]
-            local k = pair[1]
-            local v = pair[2]
-            return k, v
-        end
-    end
-    return it
+    return ipairs(self._items)
+    --     i = i + 1
+
+    --     if i <= n then
+    --         local pair = t[i]
+    --         local k = pair[1]
+    --         local v = pair[2]
+    --         if k ~= nil and ~k ~= v then
+    --             return k, v
+    --         end
+    --     end
+    -- end
+    -- return it
 end
 
 
@@ -453,7 +461,6 @@ local Enum = class('Enum')
 function Enum:initialize(name, elements)
     local bimap = BiMap:new()
     local _default = nil
-    self._bimap = bimap
 
     local function _addValue(k, v)
         local old = nil
