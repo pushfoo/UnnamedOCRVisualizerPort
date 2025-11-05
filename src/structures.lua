@@ -6,6 +6,35 @@
 ]]
 local class = require "lib.middleclass"
 
+---Try to ez pretty prent a single item (hanldes tables poorly)
+---@param v any value
+---@return string
+local function _prettyItem(v)
+    if v == nil then
+        return 'nil'
+    end
+    local T_v = type(v)
+    if T_v == 'string' then
+        return "'" .. v .. "'"
+    end
+    return tostring(v)
+end
+
+
+local function _prettyPair(old)
+    local kP = _prettyItem(old[1])
+    local _v = old[2]
+    local vP = nil
+    if type(_v) == 'table' then
+        vP = tostring(vP)
+    else
+        vP = _prettyItem(vP)
+    end
+    local f = string.format("{%s=%s}", kP, vP)
+    return f
+end
+
+
 local structures = {}
 
 --- Q: is this better for struct-likes with defaults?
@@ -68,8 +97,47 @@ function _dmeta:__tostring()
     return self.wrapped
 end
 
+local Wrapper = class('Wrapper')
+
+function Wrapper:initialize(wrapped)
+    self.wrapped = wrapped
+end
+
+
+function Wrapper.static.isWrapped(maybeWrapped, strict)
+    if maybeWrapped == nil then
+        return false
+    elseif strict then
+        return Wrapper:isInstanceOf(maybeWrapped)
+    end
+    local _w = maybeWrapped.wrapped
+    return _w == nil
+end
+
+function Wrapper.static.unwrap(maybeWrapped)
+    local _w = nil
+    if maybeWrapped then
+       _w = maybeWrapped.wrapped
+    end
+    return _w or maybeWrapped
+end
+
+local Default = Wrapper:subclass('Default')
+
+---@generic _K
+---@alias K _K
+
+---@generic _V
+---@alias V _V
+
+--- @class Default<V>
+--- @field wrapped V
 enum.Default = setmetatable({}, _dmeta)
 
+
+--- True if this is an object with a default.
+---@param maybe any
+---@return boolean
 function enum.Default.isADefault(maybe)
     return maybe and getmetatable(maybe) == _dmeta
 end
@@ -77,13 +145,11 @@ end
 local d = enum.Default("eee")
 print(d, enum.Default.isADefault(d))
 
-local Enum = class('Enum')
 
-local _nameStorage = {}
-Enum.static.nameStorage = _nameStorage
 
 local Collection = class('Collection')
 structures.Collection = Collection
+
 
 function Collection:initialize(items)
     local _items = {}
@@ -151,8 +217,10 @@ function BiMap:initialize(elements)
             local oldV = insertionOrder[oldValueIndex]
             error(_dupeFmt('key', k, v, k, oldV))
         end
+        local asPair = {k, v}
+        print("pair", _prettyPair(asPair))
         table.insert(insertionOrder, {k, v})
-        local n = #insertionOrder
+        local n = table.getn(insertionOrder)
         keyToIndex[k] = n
         valueToIndex[v] = n
         self.nPairs = n
@@ -163,6 +231,7 @@ function BiMap:initialize(elements)
     self._addTo = _addTo
     if elements then
         for k, v in pairs(elements) do
+            print("itering", _prettyPair({k, v}))
             _addTo(k, v)
         end
     end
@@ -179,21 +248,13 @@ function BiMap:concat(sep)
     return table.concat(preprocessed, sep)
 end
 
-local function _pretty(v)
-    if v == nil then
-        return 'nil'
-    end
-    local T_v = type(v)
-    if T_v == 'string' then
-        return "'" .. v .. "'"
-    end
-end
-
 local WRONG_LENGTH_PAIR = "ValueError: pair must be length 2, but got #%s=%i"
 
-
-local function extractKVPair(...)
-    local failureReason = nil
+---comment
+---@param tableOrString table<string, V>|string
+---@param maybeValue V?
+---@return K?, V?, string?
+local function extractKVPair(tableOrString, maybeValue)
     local pair = nil
     local nArg = #arg
     if nArg == 2 then
@@ -229,9 +290,16 @@ function BiMap:insert(...)
 end
 
 function BiMap:addPair(...)
-    local k, v, _err = extractKVPair(arg)
-    if _err then error(_err) end
-    self._addTo(k, v)
+    local t = nil
+    local nArg = #arg
+    if nArg == 1 then
+        t = arg[1]
+    elseif nArg == 2 then
+        t = {arg[1], arg[2]}
+    else
+        error("TypeError: takes table<K,V> K,V, but got #arg=" .. tostring(nArg))
+    end
+    self._addTo(t[1], t[2])
 end
 
 function BiMap:_getPairForIndex(index)
@@ -362,207 +430,139 @@ end
 --     end
 --     return s, isNew
 -- end
---
--- function makeEnum(name, elements)
---     local E = Enum:subclass(name)
---     local storage,isNew = _getStorage(name)
---     if isNew == false then
---         error(string.format('EnumNumTaken: %s already defined', name))
---     end
---     E.static.storage = storage
--- end
---
--- function Enum:initialize(name, elements)
---     local storage, isNew = _getStorage(name)
---     if isNew == false then
---         error('Already have enum named ' .. name)
---     end
---     local nameToValue = storage.nameToValue
---     local valueToName = storage.valueToName
---
---     local nPairs = 0
---     local function addValue(k, v)
---         if valueToName[v] ~= nil then
---             local old = valueToName[v]
---             error(string.format(
---                 "DuplicateValue: v=%s already defined for %s",
---                 v, old
---             ))
---         end
---         nameToValue[k] = v
---         valueToName[v] = k
---         nPairs = nPairs + 1
---     end
---
---     for k, v in pairs(elements) do
---         if type(k) ~= 'string' then
---             error(string.format(
---                 "TypeError: key in %s=%s is not a string",
---                 k, v
---             ))
---         end
---         local value = nil
---         if enum.Default.isADefault(v) then
---             value = v.wrapped
---             self.static.defaultWhenNil = value
---         else
---             value = v
---         end
---         if value == nil then
---             error(string.format(
---                 "TypeError: %k=nil bbut no nil values are permitted", k
---             ))
---         end
---         addValue(k, value)
---     end
--- end
---
--- function Enum:__newindex(k, v)
---     error('TypeError: Enum is not mutable')
--- end
---
--- function Enum:getMemberName(self, value)
---     if value == nil and self.defaultWhenNil ~= nil then
---         return self.defaultWhenNil
---     end
---     local haveValue = self.static[value]
---     if haveValue == nil then
---         error(string.format('NameError: %s is not a member of this enum', value))
---     end
--- end
---
--- function Enum:__pairs()
---     return ipairs(self.static.nameToValue)
--- end
---
--- function Enum:hasDefault()
---     local defaultWhenNil = self.static.defaultWhenNil
---     return defaultWhenNil ~= nil
--- end
---
--- function Enum:getNameForValue(value)
---     local static = self.static
---     if value == nil and self:hasDefault() then
---         return static.defaultWhenNil
---     end
---     local valueToName = static.valueToName
---     return valueToName[value]
--- end
---
--- function Enum:getValueForName(name)
---     local nameToValue = self.static.nameToValue
---     return nameToValue[name]
--- end
---
--- function Enum:hasValue(value)
---     return self:getNameForValue(value) ~= nil
--- end
---
--- function Enum:hasName(name)
---     return self:getValueForName(name) ~= nil
--- end
---
--- enum.Enum = Enum
 
-
----Makes an enum-like table which rejects writes.
----@generic V
----@param name string
----@param elements table<string, V>
-function enum.create(name, elements)
-    local _nameToValue = {}
-    local _valueToName = {}
-    local _default = nil
-    local enumType = {}
-    local eltsSet = structures.Set:new()
-    local function addEntry(k, v)
-        _nameToValue[k] = v
-        _valueToName[v] = k
-        eltsSet:insert(v)
-        -- Hellish print debugging ; A ;
-        print("k", type(k), "v", type(v))
-        print("v2n", v, _valueToName[v], "->", k)
-        print("k2v", k, _nameToValue[k], "<-", v)
+local function _checkEnumName(k, v)
+    local problem = nil
+    local T_k = type(k)
+    if T_k ~= 'string' then
+        local _k_p = _prettyItem(k)
+        problem = string.format("TypeError: k=%s of {%s=%s} must be a string, not %s", _k_p, _k_p, v, T_k)
+    elseif #k == 0 then
+        local _k_p = _prettyItem(k)
+        problem = string.format("ValueError: k=%s of {%s=%s} cannot be empty.", _k_p, _k_p, _prettyItem(v))
     end
+    return problem
+end
+
+
+---@class Enum<V>
+---@overload fun():Enum<V>
+local Enum = class('Enum')
+
+
+function Enum:initialize(name, elements)
+    local bimap = BiMap:new()
+    local _default = nil
+    self._bimap = bimap
+
+    local function _addValue(k, v)
+        local old = nil
+        old = bimap:getPairForKey(v)
+        if old then
+            error(string.format(
+                "DuplicateName: Enum %s already has name %s in %s",
+                name, _prettyItem(k), _prettyPair(old)
+            ))
+        end
+        old = bimap:getPairForValue(k)
+        if old then
+            error(string.format(
+                "DuplicateValue: Enum %s already has v=%s in %s",
+                --- V might be a table (in theory) so let's keep it simple?
+                name, v, _prettyPair(old)
+            ))
+        end
+        bimap:addPair(k, v)
+    end
+
     local Default = enum.Default
 
+    ---Returns a default
+    --- @param k string
+    --- @param maybeDefault V|Default<V>
+    --- @return V?,string?
+    local function handleDefaults(k, maybeDefault)
+        local _w = nil
+        local _e = nil
+        if Default.isADefault(maybeDefault) then
+            _w = maybeDefault.wrapped
+            if _default == nil then
+               _default = _w
+            else
+                _e = string.format(
+                    "DefaultConflict: value in %s despite prior default in %s",
+                    _prettyPair({k, _w}), _prettyPair({bimap:getPairForValue(_default)})
+                )
+            end
+        else
+            _w = maybeDefault
+        end
+        return _w, _e
+    end
 
     for k, v in pairs(elements) do
-        if type(k) ~= "string" then
-            error(string.format("k=%s is not a string", k))
+        local _e = _checkEnumName(k, v)
+        if _e then error(_e) end
+        if type(k) ~= 'string' then
+            error(string.format(
+                "TypeError: key in %s=%s is not a string",
+                k, v
+            ))
         end
-        print("isdefault?", k , v, Default.isADefault(v))
-        if Default.isADefault(v) then
-            v = v.wrapped
-            print("t", type(v), v)
-            if _default ~= nil then
-                error(string.format(
-                    "DefaultConflict: cannot set %s=%s (%s=%s is already default",
-                    k, v, _valueToName[_default], _default
-                ))
-            else
-                _default = v
-            end
-        end
-        if _valueToName[v] ~= nil then
-            error(string.format("v=%s is not a unique value (k=% duplicates it)", v, _valueToName[v]))
-        end
-        addEntry(k, v)
+        local unwrapped, _errorMessage  handleDefaults(k, v)
+        if _errorMessage then error(_errorMessage) end
+        _addValue(k, unwrapped)
     end
-    local function formatErrorString(value)
-        return string.format(
-            "Enum %s does not include value %s",
-            name, tostring(value)
-        )
-    end
-    function elements:getProblem(value)
-        if _valueToName[value] == nil then
-           return formatErrorString(value)
-        end
-    end
-    function elements:new(emaybe)
-        print("has?", emaybe, type(emaybe), eltsSet:has(emaybe), "|")
-        print("deeez", "'" .. tostring(_default) .. "'")
-        if emaybe == nil then
-            if _default then
-                return _default
-            end
-            error("TypeError: nil has no default set for enum " .. name)
-        end
-        local nameThing = _valueToName[emaybe]
-        if nameThing == nil then
-            print("value", emaybe, nameThing)
-            for k, v in pairs(_valueToName) do
-                print("- ", k, v)
-            end
-            error(formatErrorString(emaybe))
-        end
-        return emaybe
-    end
-    for k, v in pairs(eltsSet:toPlainTable()) do
-        print("eeee", k, v)
-    end
-    enumType.name = name
-    -- function enumType:__index(key)
-    --     if key == 'name' then
-    --         return name
-    --     else
-    --         return _nameToValue[key]
-    --     end
-    -- end
-    function elements:hasValue(value)
-        return eltsSet:has(value)
-        -- return value ~= nil and (_valueToName[value] ~= nil)
-    end
-    function enumType:__newindex(key, value)
-        error(string.format("ImmutableValue: cannot set %s=%s", tostring(key), tostring(value)))
-    end
-    local et = setmetatable(elements, enumType)
-    for k, v in pairs(_nameToValue) do
-        print("laast", k, v, et:hasValue(k))
-    end
-    return et
+    self._defaultWhenNil = _default
+    self._bimap = bimap
 end
+
+function Enum:__newindex(k, v)
+    if self._bimap then
+        error('TypeError: Enum is not mutable')
+    end
+    return rawset(self, k, v)
+end
+
+
+function Enum:__pairs()
+    return self._bimap:__pairs()
+end
+
+function Enum:hasDefault()
+    local defaultWhenNil = self._defaultWhenNil
+    return defaultWhenNil ~= nil
+end
+
+---comment
+---@param value V
+---@return string?
+function Enum:getNameForValue(value)
+    local key = nil
+    if value == nil then
+        value = self._defaultWhenNil
+    end
+    if value ~= nil then
+        key = self._bimap:getKeyForValue(value)
+    end
+    return key
+end
+
+function Enum:getValueForName(name)
+    return self._bimap:getValueForKey(name)
+end
+
+function Enum:hasValue(value)
+    return self._bimap:getKeyForValue(value) ~= nil
+end
+
+function Enum:hasName(name)
+    return self._bimap:getValueForKey(name) ~= nil
+end
+
+enum.Enum = Enum
+
+
 
 --- Too-clever class-like objects (legacy)
 ---@class _Class
