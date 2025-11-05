@@ -77,6 +77,197 @@ end
 local d = enum.Default("eee")
 print(d, enum.Default.isADefault(d))
 
+local Enum = class('Enum')
+
+local _nameStorage = {}
+Enum.static.nameStorage = _nameStorage
+
+
+
+local BiMap = class('BiMap')
+function BiMap:initialize(elements)
+    local keyToIndex = {}
+    local valueToIndex = {}
+    local insertionOrder = {}
+    self.keyToValue = keyToIndex
+    self.valueToKey = valueToIndex
+    self.insertionOrder = insertionOrder
+    local function _dupeFmt(what, k, v, oldK, oldV)
+        return string.format(
+            "DuplicateError: %s in (%s=%s) already exists (%s=%s)",
+            what, k, v, oldK, oldV
+        )
+    end
+    self.nPairs = 0
+    local function _addTo(k, v)
+        local oldKeyIndex = keyToIndex[v]
+        local oldValueIndex = keyToIndex[k]
+        if oldKeyIndex ~= nil then
+            local oldK = insertionOrder[oldKeyIndex]
+            error(_dupeFmt('value', k, v, oldK, v))
+        elseif oldValueIndex then
+            local oldV = insertionOrder[oldValueIndex]
+            error(_dupeFmt('key', k, v, k, oldV))
+        end
+        table.insert(insertionOrder, {k, v})
+        local n = #insertionOrder
+        keyToIndex[k] = n
+        valueToIndex[v] = n
+        self.nPairs = n
+        print(string.format("Added key %s=%s (#nPairs=%i)", k, v, self.nPairs))
+        return true
+    end
+
+    self._addTo = _addTo
+    if elements then
+        for k, v in pairs(elements) do
+            _addTo(k, v)
+        end
+    end
+end
+
+function BiMap:addPair(k, v)
+    self._addTo(k, v)
+end
+
+function BiMap:__pairs()
+    local t = self.insertionOrder
+    local n = #t
+    local i = 0
+    local function it()
+        i = i + 1
+        if i <= n then
+            local pair = t[i]
+            local k = pair[1]
+            local v = pair[2]
+            return k, v
+        end
+    end
+    return it
+end
+
+
+local b = BiMap:new({a="b", c="d"})
+for k, v in pairs(b) do
+    print("bbbb", k, v)
+end
+
+-- local function makeStorage(name)
+--     local s = _nameStorage[name]
+--     local isNew = false
+--     if s == nil then
+--         s = {
+--             nameToValue = {},
+--             valueToName = {}
+--         }
+--         _nameStorage[name] =s
+--         isNew = true
+--     end
+--     return s, isNew
+-- end
+--
+-- function makeEnum(name, elements)
+--     local E = Enum:subclass(name)
+--     local storage,isNew = _getStorage(name)
+--     if isNew == false then
+--         error(string.format('EnumNumTaken: %s already defined', name))
+--     end
+--     E.static.storage = storage
+-- end
+--
+-- function Enum:initialize(name, elements)
+--     local storage, isNew = _getStorage(name)
+--     if isNew == false then
+--         error('Already have enum named ' .. name)
+--     end
+--     local nameToValue = storage.nameToValue
+--     local valueToName = storage.valueToName
+--
+--     local nPairs = 0
+--     local function addValue(k, v)
+--         if valueToName[v] ~= nil then
+--             local old = valueToName[v]
+--             error(string.format(
+--                 "DuplicateValue: v=%s already defined for %s",
+--                 v, old
+--             ))
+--         end
+--         nameToValue[k] = v
+--         valueToName[v] = k
+--         nPairs = nPairs + 1
+--     end
+--
+--     for k, v in pairs(elements) do
+--         if type(k) ~= 'string' then
+--             error(string.format(
+--                 "TypeError: key in %s=%s is not a string",
+--                 k, v
+--             ))
+--         end
+--         local value = nil
+--         if enum.Default.isADefault(v) then
+--             value = v.wrapped
+--             self.static.defaultWhenNil = value
+--         else
+--             value = v
+--         end
+--         if value == nil then
+--             error(string.format(
+--                 "TypeError: %k=nil bbut no nil values are permitted", k
+--             ))
+--         end
+--         addValue(k, value)
+--     end
+-- end
+--
+-- function Enum:__newindex(k, v)
+--     error('TypeError: Enum is not mutable')
+-- end
+--
+-- function Enum:getMemberName(self, value)
+--     if value == nil and self.defaultWhenNil ~= nil then
+--         return self.defaultWhenNil
+--     end
+--     local haveValue = self.static[value]
+--     if haveValue == nil then
+--         error(string.format('NameError: %s is not a member of this enum', value))
+--     end
+-- end
+--
+-- function Enum:__pairs()
+--     return ipairs(self.static.nameToValue)
+-- end
+--
+-- function Enum:hasDefault()
+--     local defaultWhenNil = self.static.defaultWhenNil
+--     return defaultWhenNil ~= nil
+-- end
+--
+-- function Enum:getNameForValue(value)
+--     local static = self.static
+--     if value == nil and self:hasDefault() then
+--         return static.defaultWhenNil
+--     end
+--     local valueToName = static.valueToName
+--     return valueToName[value]
+-- end
+--
+-- function Enum:getValueForName(name)
+--     local nameToValue = self.static.nameToValue
+--     return nameToValue[name]
+-- end
+--
+-- function Enum:hasValue(value)
+--     return self:getNameForValue(value) ~= nil
+-- end
+--
+-- function Enum:hasName(name)
+--     return self:getValueForName(name) ~= nil
+-- end
+--
+-- enum.Enum = Enum
+
+
 ---Makes an enum-like table which rejects writes.
 ---@generic V
 ---@param name string

@@ -150,7 +150,7 @@ function Patch_ipairs.patch()
     local _ipairs = ipairs
     function ipairs(iterable)
         if iterable and iterable.__ipairs then
-            return iterable.__ipairs()
+            return iterable:__ipairs()
         end
         return _ipairs(iterable)
     end
@@ -180,24 +180,25 @@ local Patch_pairs = lua_5_2_iteration:newPatcher('pairs', 'Lua 5.2')
 
 function Patch_pairs.patch()
     originals.pairs = pairs
-    local _ipairs = ipairs
-    function ipairs(iterable)
-        if iterable and iterable.__ipairs then
-            return iterable.__ipairs()
+    local _pairs = pairs
+    function pairs(iterable)
+        if iterable and iterable.__pairs then
+            return iterable:__pairs()
         end
-        return _ipairs(iterable)
+        return _pairs(iterable)
     end
 end
 
 
 function Patch_pairs.check()
     local _mt = {}
+    local alphabet = "abc"
     function _mt:__pairs()
         self.index = 0
         return function()
             self.index = self.index + 1
-            if self.index <= 1 then
-                return self.index, self.index
+            if self.index <= #alphabet then
+                return alphabet[self.index], self.index
             end
         end
     end
