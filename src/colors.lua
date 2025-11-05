@@ -40,42 +40,13 @@ colors.MAGENTA = {1.0, 0.0, 1.0, 1.0}
 
 
 --- Channel data signals to tell color conversion what to do.
-local ChannelType = enum.create('ChannelType', {
+local ChannelType = enum.Enum:new('ChannelType', {
     BYTE = 'byte',
     NORM = enum.Default('norm')
 })
 colors.ChannelType = ChannelType
 
 
--- function colors.fromHexString(maybeHex, outMode)
---     if type(maybeHex) ~= "string" then
---        error(fmt_errors.typeError("maybeHex must be a srting, not a %s", {tostring(maybeHex)}))
---     end
---     local toProcess = nil
---     if maybeHex[1] == '#' then
---         toProcess = maybeHex:sub(2, #maybeHex)
---     else
---         toProcess = maybeHex
---     end
---     local nChars = #toProcess
---     -- RGB and RGBA forms each have #s < 6
---     local chunkSize = tern(nChars < 6, 1, 2)
---     local color = {}
---     for i = 1,nChars,chunkSize do
-
---     end
---     if nChars < 6 then chunkSize = 2
---     local chunkSize = 2
---     if nChars =
---     --[[
---     aaa
---     AAAA
---     AAAAAA
---     AAAAAAAA
---     ]]
-
-
--- end
 
 --- Ensure a value is a normalized RGBA colors.
 --- Behavior depends on the value type passed:
@@ -88,8 +59,12 @@ colors.ChannelType = ChannelType
 ---@param fromType "byte"|"norm"?
 ---@return table<integer, number>
 function colors.asNorm(colorRaw, fromType)
-    fromType = fromType or ChannelType.NORM
-    fromType = ChannelType:new(fromType)
+    local ft, err = ChannelType:getValidated(fromType)
+    if err then error(err) end
+    -- if problem then
+    --     error(string.format("%s: fromType=%s (not one of 'norm' or 'bytes')", problem, fromType))
+    -- end
+    -- fromType = ChannelType:getValueForName(fromType)
     local T_colorRaw = type(colorRaw)
     local converted = nil
 
@@ -106,6 +81,8 @@ function colors.asNorm(colorRaw, fromType)
         end
         local maxChannel = 255
         local scaleBy = 255.0
+        -- TODO: The OOP library (middleclass) and VS Code hate each other
+        -- ; -; y tho? y? Please, don't make me use Teal or other compile-my-compiler-in-yet-another-compiler-ity?
         if fromType == ChannelType.NORM then
             maxChannel = 1.0
             scaleBy = 1.0
