@@ -78,7 +78,6 @@ end
 ---@return string,integer
 util.rtrim = function(s) return s:gsub(RTRIM, "") end
 
-
 local trim = util.trim
 
 --- Trim empty strings to nil.
@@ -203,6 +202,19 @@ function util.functional.skipN(iterator, nToSkip)
     return iterator
 end
 
+
+---Shorthand akin to  `EXPR ? trueVal : falseVal` in other languages.
+---Passing nil for either is intended to permit tern(expr, maybeNil, fallback)
+---@param condition any
+---@param returnWhenTrue any?
+---@param returnWhenFalse any?
+function util.functional.tern(condition, returnWhenTrue, returnWhenFalse)
+    if condition then
+        return returnWhenTrue
+    else
+        return returnWhenFalse
+    end
+end
 
 --- Escape spaces.
 ---NOTE: Brittle!

@@ -6,7 +6,8 @@ local util = require("util")
 local class = require("lib.middleclass")
 local localmath = require("localmath")
 local typechecks = require("typechecks")
-
+local enum = require("structures").enum
+local tern = util.functional.tern
 local lerpTable = localmath.lerpTable
 local colors = {}
 
@@ -36,30 +37,45 @@ colors.GREEN  = {0.0, 1.0, 0.0, 1.0}
 -- For the "missing" texture
 colors.MAGENTA = {1.0, 0.0, 1.0, 1.0}
 
---- Return nil or an error string if not "byte" or "norm"
----@param maybeByteOrNorm any
----@return string?
-local _checkChannelMode = function(maybeByteOrNorm)
-    local problemType = nil
-    local problem = nil
-    if type(maybeByteOrNorm) ~= 'string' then
-        problemType = fmt_errors.typeError
-    elseif maybeByteOrNorm ~= 'byte' and maybeByteOrNorm ~= 'norm' then
-        problemType = fmt_errors.valueError
-    end
-    if problemType then
-        problem = problemType('fromType==%s, but it must be "byte", "norm", or nil (defaults to "byte)', {tostring(maybeByteOrNorm)})
-    end
-    return problem
-end
+
 
 --- Channel data signals to tell color conversion what to do.
-local ChannelType = {
+local ChannelType = enum.create('ChannelType', {
     BYTE = 'byte',
-    NORM = 'norm'
-}
+    NORM = enum.Default('norm')
+})
 colors.ChannelType = ChannelType
 
+
+-- function colors.fromHexString(maybeHex, outMode)
+--     if type(maybeHex) ~= "string" then
+--        error(fmt_errors.typeError("maybeHex must be a srting, not a %s", {tostring(maybeHex)}))
+--     end
+--     local toProcess = nil
+--     if maybeHex[1] == '#' then
+--         toProcess = maybeHex:sub(2, #maybeHex)
+--     else
+--         toProcess = maybeHex
+--     end
+--     local nChars = #toProcess
+--     -- RGB and RGBA forms each have #s < 6
+--     local chunkSize = tern(nChars < 6, 1, 2)
+--     local color = {}
+--     for i = 1,nChars,chunkSize do
+
+--     end
+--     if nChars < 6 then chunkSize = 2
+--     local chunkSize = 2
+--     if nChars =
+--     --[[
+--     aaa
+--     AAAA
+--     AAAAAA
+--     AAAAAAAA
+--     ]]
+
+
+-- end
 
 --- Ensure a value is a normalized RGBA colors.
 --- Behavior depends on the value type passed:
@@ -72,14 +88,8 @@ colors.ChannelType = ChannelType
 ---@param fromType "byte"|"norm"?
 ---@return table<integer, number>
 function colors.asNorm(colorRaw, fromType)
-    if fromType == nil then
-        fromType = ChannelType.NORM
-    else
-        local problem = _checkChannelMode(fromType)
-        if problem then
-            error(problem)
-        end
-    end
+    fromType = fromType or ChannelType.NORM
+    fromType = ChannelType:new(fromType)
     local T_colorRaw = type(colorRaw)
     local converted = nil
 

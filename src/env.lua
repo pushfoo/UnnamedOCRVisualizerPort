@@ -15,6 +15,13 @@ else
     env.DEFAULT_SEP = "/"
 end
 
+---Compat shim aroung the env.Path type.
+---@param path string|Path
+---@return table<string, any>?
+function env.file(path)
+    return love.filesystem.getInfo(tostring(path), {type="file"})
+end
+
 -- Design goal: try to avoid too dependening on NiceArray / etc.
 -- * This helps with decoupling this into a library for others
 -- * Since we can't really subclass string, it may help perf?

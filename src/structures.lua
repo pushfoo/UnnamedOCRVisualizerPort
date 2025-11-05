@@ -56,6 +56,126 @@ function _mt:__call(t, mt)
     return created
 end
 
+local enum = {}
+structures.enum = enum
+
+local _dmeta = {}
+function _dmeta:__call(value)
+    return setmetatable({wrapped=value}, _dmeta)
+end
+
+function _dmeta:__tostring()
+    return self.wrapped
+end
+
+enum.Default = setmetatable({}, _dmeta)
+
+function enum.Default.isADefault(maybe)
+    return maybe and getmetatable(maybe) == _dmeta
+end
+
+local d = enum.Default("eee")
+print(d, enum.Default.isADefault(d))
+
+---Makes an enum-like table which rejects writes.
+---@generic V
+---@param name string
+---@param elements table<string, V>
+function enum.create(name, elements)
+    local _nameToValue = {}
+    local _valueToName = {}
+    local _default = nil
+    local enumType = {}
+    local eltsSet = structures.Set:new()
+    local function addEntry(k, v)
+        _nameToValue[k] = v
+        _valueToName[v] = k
+        eltsSet:insert(v)
+        -- Hellish print debugging ; A ;
+        print("k", type(k), "v", type(v))
+        print("v2n", v, _valueToName[v], "->", k)
+        print("k2v", k, _nameToValue[k], "<-", v)
+    end
+    local Default = enum.Default
+
+
+    for k, v in pairs(elements) do
+        if type(k) ~= "string" then
+            error(string.format("k=%s is not a string", k))
+        end
+        print("isdefault?", k , v, Default.isADefault(v))
+        if Default.isADefault(v) then
+            v = v.wrapped
+            print("t", type(v), v)
+            if _default ~= nil then
+                error(string.format(
+                    "DefaultConflict: cannot set %s=%s (%s=%s is already default",
+                    k, v, _valueToName[_default], _default
+                ))
+            else
+                _default = v
+            end
+        end
+        if _valueToName[v] ~= nil then
+            error(string.format("v=%s is not a unique value (k=% duplicates it)", v, _valueToName[v]))
+        end
+        addEntry(k, v)
+    end
+    local function formatErrorString(value)
+        return string.format(
+            "Enum %s does not include value %s",
+            name, tostring(value)
+        )
+    end
+    function elements:getProblem(value)
+        if _valueToName[value] == nil then
+           return formatErrorString(value)
+        end
+    end
+    function elements:new(emaybe)
+        print("has?", emaybe, type(emaybe), eltsSet:has(emaybe), "|")
+        print("deeez", "'" .. tostring(_default) .. "'")
+        if emaybe == nil then
+            if _default then
+                return _default
+            end
+            error("TypeError: nil has no default set for enum " .. name)
+        end
+        local nameThing = _valueToName[emaybe]
+        if nameThing == nil then
+            print("value", emaybe, nameThing)
+            for k, v in pairs(_valueToName) do
+                print("- ", k, v)
+            end
+            error(formatErrorString(emaybe))
+        end
+        return emaybe
+    end
+    for k, v in pairs(eltsSet:toPlainTable()) do
+        print("eeee", k, v)
+    end
+    enumType.name = name
+    -- function enumType:__index(key)
+    --     if key == 'name' then
+    --         return name
+    --     else
+    --         return _nameToValue[key]
+    --     end
+    -- end
+    function elements:hasValue(value)
+        return eltsSet:has(value)
+        -- return value ~= nil and (_valueToName[value] ~= nil)
+    end
+    function enumType:__newindex(key, value)
+        error(string.format("ImmutableValue: cannot set %s=%s", tostring(key), tostring(value)))
+    end
+    local et = setmetatable(elements, enumType)
+    for k, v in pairs(_nameToValue) do
+        print("laast", k, v, et:hasValue(k))
+    end
+    return et
+end
+
 --- Too-clever class-like objects (legacy)
 ---@class _Class
 local _Class = setmetatable({metaOnly = _metaOnly}, _mt)
@@ -172,13 +292,19 @@ function Set:initialize(collection)
 end
 
 function Set:has(item)
-    return self._items[item] == true
+    local items = self._items
+    for k, v in pairs(items) do
+        print("-h", item, "?", k , v)
+    end
+    local haveItem = items[item]
+    print("setask", item, haveItem)
+    return haveItem ~= nil
 end
 
 
 function Set:insert(item)
     local items = self._items
-    if not items[item] then
+    if items[item] ~= true then
         items[item] = true
         return true
     end
@@ -188,7 +314,7 @@ end
 function Set:remove(item)
     local items = self._items
     if self:has(item) then
-        items[item] = false
+        items[item] = nil
         return true
     end
     return false
@@ -197,7 +323,7 @@ end
 function Set:toPlainTable()
     local t = {}
     for item, _ in pairs(self._items) do
-        t:insert(item)
+        table.insert(t, item)
     end
     return t
 end
