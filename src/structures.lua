@@ -125,16 +125,15 @@ end
 
 
 
-local BiMap = class('BiMap')
+local BiMap = Collection:subclass('BiMap')
 
 function BiMap:initialize(elements)
+    Collection.initialize(self)
     local keyToIndex = {}
     local valueToIndex = {}
-    local insertionOrder = {}
-
+    local insertionOrder = self._items
     self.keyToIndex = keyToIndex
     self.valueToIndex = valueToIndex
-    self.insertionOrder = insertionOrder
     local function _dupeFmt(what, k, v, oldK, oldV)
         return string.format(
             "DuplicateError: %s in (%s=%s) already exists (%s=%s)",
@@ -169,7 +168,69 @@ function BiMap:initialize(elements)
     end
 end
 
-function BiMap:addPair(k, v)
+function BiMap:concat(sep)
+    sep = sep or ", "
+    local preprocessed = {}
+    for pair in self._items do
+        local k = pair[1]
+        local v = pair[2]
+        table.insert(preprocessed, string.format("{%s=%v}", k, v))
+    end
+    return table.concat(preprocessed, sep)
+end
+
+local function _pretty(v)
+    if v == nil then
+        return 'nil'
+    end
+    local T_v = type(v)
+    if T_v == 'string' then
+        return "'" .. v .. "'"
+    end
+end
+
+local WRONG_LENGTH_PAIR = "ValueError: pair must be length 2, but got #%s=%i"
+
+
+local function extractKVPair(...)
+    local failureReason = nil
+    local pair = nil
+    local nArg = #arg
+    if nArg == 2 then
+        pair = arg
+    elseif nArg == 1 then
+        pair = arg[1]
+    else
+        return nil, nil, string.format(WRONG_LENGTH_PAIR, "arg", nArg)
+    end
+    local T_pair = type(pair)
+    if T_pair ~= "table" then
+        return nil, nil, "TypeError: single-argument call must be a table, not " .. T_pair
+    end
+    local nPair = #pair
+    local T_nPair = type(nPair)
+
+    if T_nPair == 'number' then
+        if nPair ~= 2 then
+            return nil, nil, string.format(WRONG_LENGTH_PAIR, "pair", nPair)
+        end
+    else
+        return nil, nil, "TypeError: expected array pair, but got named table."
+    end
+    local k = pair[1]
+    local v = pair[2]
+    return k, v, nil
+end
+
+function BiMap:insert(...)
+    local k, v, _err = extractKVPair(arg)
+    if _err then error(_err) end
+    self._addTo(k, v)
+end
+
+function BiMap:addPair(...)
+    local k, v, _err = extractKVPair(arg)
+    if _err then error(_err) end
     self._addTo(k, v)
 end
 
@@ -177,7 +238,7 @@ function BiMap:_getPairForIndex(index)
     local k, v = nil, nil
     local pair = nil
     if index ~= nil then
-        pair = self.insertionOrder[index]
+        pair = self._items[index]
     end
     if pair then
         k = pair[1]
@@ -231,7 +292,7 @@ function BiMap:has(keyOrValue)
 end
 
 function BiMap:_removeByIndex(index)
-    local pair = table.remove(self.insertionOrder, index)
+    local pair = table.remove(self._items, index)
     local k, v = nil, nil
     if pair then
         k = pair[1]
@@ -267,7 +328,7 @@ end
 
 
 function BiMap:__pairs()
-    local t = self.insertionOrder
+    local t = self._items
     local n = #t
     local i = 0
     local function it()
