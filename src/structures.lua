@@ -82,15 +82,58 @@ local Enum = class('Enum')
 local _nameStorage = {}
 Enum.static.nameStorage = _nameStorage
 
+local Collection = class('Collection')
+structures.Collection = Collection
+
+function Collection:initialize(items)
+    local _items = {}
+    if items then
+        if type(items) ~= 'table' then
+            error("TypeError: passed items must be arrays.")
+        end
+        for _, value in ipairs(items) do
+            table.insert(_items, value)
+        end
+    end
+    self._items = _items
+end
+
+function Collection:insert(value)
+    error("AbstractMethod: Collection:insert is abstract, please override it to insert value=" .. tostring(value))
+end
+
+function Collection:getn()
+    return #(self._items)
+end
+
+function Collection:isEmpty()
+    local n = #(self._items)
+    return n == 0
+end
+
+function Collection:toPlainTable()
+    error("AbstractMethod: Collection:toPlainTable() is abstract, please override it to convert to a plain table.")
+end
+
+
+-- Skip copying the inner table and get a table:concat(sep) directly.
+---@param sep string a separator value.
+---@return string
+function Collection:concat(sep)
+   return table.concat(self._items, sep)
+end
+
 
 
 local BiMap = class('BiMap')
+
 function BiMap:initialize(elements)
     local keyToIndex = {}
     local valueToIndex = {}
     local insertionOrder = {}
-    self.keyToValue = keyToIndex
-    self.valueToKey = valueToIndex
+
+    self.keyToIndex = keyToIndex
+    self.valueToIndex = valueToIndex
     self.insertionOrder = insertionOrder
     local function _dupeFmt(what, k, v, oldK, oldV)
         return string.format(
@@ -129,6 +172,99 @@ end
 function BiMap:addPair(k, v)
     self._addTo(k, v)
 end
+
+function BiMap:_getPairForIndex(index)
+    local k, v = nil, nil
+    local pair = nil
+    if index ~= nil then
+        pair = self.insertionOrder[index]
+    end
+    if pair then
+        k = pair[1]
+        v = pair[2]
+    end
+    return k, v
+end
+
+function BiMap:getPairFor(keyOrValue)
+    local index = (
+        self.keyToIndex[keyOrValue]
+        or self.valueToIndex[keyOrValue]
+    )
+    return self:_getPairForIndex(index)
+end
+
+---@generic K
+---@generic V
+---@param value V
+---@return K?,V?
+function BiMap:getPairForValue(value)
+    local index = self.valueToIndex[value]
+    return self:_getPairForIndex(index)
+end
+
+function BiMap:getPairForKey(key)
+    local index = self.keyToIndex[key]
+    return self:_getPairForIndex(index)
+end
+
+function BiMap:getValueForKey(key)
+    local index = self.keyToIndex[key]
+    local _, value = self:_getPairForIndex(index)
+    return value
+end
+
+function BiMap:getKeyForValue(value)
+    local index = self.valueToIndex[value]
+    local key, _ = self._getPairForIndex(index)
+    return key
+end
+
+
+function BiMap:has(keyOrValue)
+    if self.keyToIndex[keyOrValue] ~= nil then
+        return true
+    elseif self.nameToIndex[keyOrValue] ~= nil then
+        return true
+    end
+    return false
+end
+
+function BiMap:_removeByIndex(index)
+    local pair = table.remove(self.insertionOrder, index)
+    local k, v = nil, nil
+    if pair then
+        k = pair[1]
+        self.keyToIndex[k] = nil
+        v = pair[2]
+        self.valueToIndex[v] = nil
+    end
+    return k,v
+end
+
+function BiMap:removePair(k, v)
+    local keyToIndex = self.keyToIndex
+    local valueToIndex = self.valueToIndex
+    local byKey = keyToIndex[k]
+    local byValue = valueToIndex[v]
+    if byKey ~= nil and byKey == byValue then
+        return self:_removeByIndex(byKey)
+    else
+        return nil,nil
+    end
+end
+
+
+function BiMap:removePairForKey(k)
+    local index = self.keyToIndex[k]
+    return self:_removeByIndex(index)
+end
+
+function BiMap:removePairForValue(v)
+    local index = self.valueToIndex[v]
+    return self._removeByIndex(index)
+end
+
 
 function BiMap:__pairs()
     local t = self.insertionOrder
@@ -430,47 +566,6 @@ end
 
 structures.NiceArray = NiceArray
 
-
-local Collection = class('Collection')
-structures.Collection = Collection
-
-function Collection:initialize(items)
-    local _items = {}
-    if items then
-        if type(items) ~= 'table' then
-            error("TypeError: passed items must be arrays.")
-        end
-        for _, value in ipairs(items) do
-            table.insert(_items, value)
-        end
-    end
-    self._items = _items
-end
-
-function Collection:insert(value)
-    error("AbstractMethod: Collection:insert is abstract, please override it to insert value=" .. tostring(value))
-end
-
-function Collection:getn()
-    return #(self._items)
-end
-
-function Collection:isEmpty()
-    local n = #(self._items)
-    return n == 0
-end
-
-function Collection:toPlainTable()
-    error("AbstractMethod: Collection:toPlainTable() is abstract, please override it to convert to a plain table.")
-end
-
-
--- Skip copying the inner table and get a table:concat(sep) directly.
----@param sep string a separator value.
----@return string
-function Collection:concat(sep)
-   return table.concat(self._items, sep)
-end
 
 
 
