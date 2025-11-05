@@ -1,3 +1,7 @@
+local monkeypatches = require("monkeypatches")
+
+monkeypatches.applyPatches()
+
 local structures = require("structures")
 local tesseract  = require("tesseract")
 local uilayers   = require("uilayers")
@@ -14,7 +18,6 @@ AppState = {
     ---@diagnostic disable-next-line
     runner = tesseract.TesseractRunner:new()
 }
-
 
 
 

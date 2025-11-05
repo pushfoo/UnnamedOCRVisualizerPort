@@ -11,6 +11,7 @@ local env = require("env")
 local Runner = env.Runner
 
 local structures = require("structures")
+local enum = structures.enum
 local NiceArray = structures.NiceArray
 
 local tsv = require("tsv")
@@ -22,11 +23,11 @@ local genericReaders = tsv.genericReaders
 local tesseract = {}
 
 -- Converted from the output of tesseract --help-extra
-tesseract.PAGE_SEGMENTATION_MODE = {
+local PAGE_SEGMENTATION_MODE =  enum.Enum:new('PAGE_SEGMENTATION_MODE', {
     OSD_ONLY = 0,               --Orientation and script detection (OSD) only.
     AUTO_OSD = 1,               --Automatic page segmentation with OSD.
     AUTO_ONLY = 2,              --Automatic page segmentation, but no OSD, or OCR. (not implemented)
-    AUTO = 3,                   --Fully automatic page segmentation, but no OSD. (Default)
+    AUTO = enum.Default(3),     --Fully automatic page segmentation, but no OSD. (Default)
     SINGLE_COLUMN = 4,          --Assume a single column of text of variable sizes.
     SINGLE_BLOCK_VERT_TEXT = 5, --Assume a single uniform block of vertically aligned text.
     SINGLE_BLOCK = 6,           --Assume a single uniform block of text.
@@ -37,16 +38,19 @@ tesseract.PAGE_SEGMENTATION_MODE = {
     SPARSE_TEXT = 11,           --Sparse text. Find as much text as possible in no particular order.
     SPARSE_TEXT_OSD = 12,       --Sparse text with OSD.
     RAW_LINE = 13,              -- Raw line. Treat the image as a single text line, bypassing hacks that are Tesseract-specific.
-}
+})
+tesseract.PAGE_SEGMENTATION_MODE = PAGE_SEGMENTATION_MODE
 
 
 -- https://tesseract-ocr.github.io/tessdoc/#tesseract-with-lstm
-tesseract.OCR_ENGINE_MODE = {
+local OCR_ENGINE_MODE = enum.Enum:new('OCR_ENGINE_MODE', {
     TESSERACT_ONLY = 0,
     LSTM_ONKLY = 1,
     TESSERACT_LSTM_COMBINED = 2,
-    DEFAULT = 3
-}
+    DEFAULT = enum.Default(3)
+})
+
+tesseract.OCR_ENGINE_MODE = OCR_ENGINE_MODE
 
 --- Get a raw table of languages from Tesseract.
 ---Note this calls the exectuable. It does not do any
@@ -69,14 +73,21 @@ end
 local TesseractRunner = Runner:subclass("TesseractRunner")
 
 
-function TesseractRunner:initialize(lang, which)
+function TesseractRunner:initialize(lang, which, segMode)
     ---@diagnostic disable-next-line
     Runner.initialize(self, which or "tesseract")
     if lang == nil then
+
+        print('tee', tesseract)
         lang = tesseract.getLanguages()
     end
     self.lang = lang
-    self.page_segementation_mode = tesseract.PAGE_SEGMENTATION_MODE.AUTO
+    if segMode and segMode.uppercase then
+        segMode = segMode:uppercase()
+    end
+    local segMode = PAGE_SEGMENTATION_MODE:getValidated(segMode)
+    print("initialized to segMode='" .. tostring(segMode) .. "'")
+    self.page_segementation_mode = segMode
 end
 
 -- Fast and simple psuedo-set.
@@ -112,10 +123,11 @@ local _processTesseractWordTSV = function(dataString)
     return words
 end
 
-tesseract.TESSERACT_OP_MODES = {
+local TESSERACT_OP_MODES = enum.Enum:new('TESSERACT_OP_MODES', {
     TSV = "tsv", -- word bounds
     CHAR_BBOXES = "makebox" -- character bboxes
-}
+})
+tesseract.TESSERACT_OP_MODES = TESSERACT_OP_MODES
 
 ---Get either nil or the langs to use joined by +.
 ---@param langs string|table

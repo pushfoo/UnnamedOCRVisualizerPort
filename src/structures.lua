@@ -444,6 +444,15 @@ end
 ---@overload fun():Enum<V>
 local Enum = class('Enum')
 
+if Enum.new == nil then
+    ---comment
+    ---@param name string
+    ---@param elements table<string, V|Default<V>>
+    ---@return Enum<V>
+    function Enum:new(name, elements)
+    ---@diagnostic disable-next-line
+    end
+end
 ---comment
 ---@param name string
 ---@param elements table<string, V>
