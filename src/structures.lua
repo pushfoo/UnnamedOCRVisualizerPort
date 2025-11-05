@@ -425,19 +425,6 @@ for k, v in pairs(b) do
     print("bbbb", k, v)
 end
 
--- local function makeStorage(name)
---     local s = _nameStorage[name]
---     local isNew = false
---     if s == nil then
---         s = {
---             nameToValue = {},
---             valueToName = {}
---         }
---         _nameStorage[name] =s
---         isNew = true
---     end
---     return s, isNew
--- end
 
 local function _checkEnumName(k, v)
     local problem = nil
@@ -457,7 +444,9 @@ end
 ---@overload fun():Enum<V>
 local Enum = class('Enum')
 
-
+---comment
+---@param name string
+---@param elements table<string, V>
 function Enum:initialize(name, elements)
     local bimap = BiMap:new()
     local _default = nil
@@ -520,26 +509,48 @@ function Enum:initialize(name, elements)
         if _errorMessage then error(_errorMessage) end
         _addValue(k, unwrapped)
     end
+    self.name = name
     self._defaultWhenNil = _default
     self._bimap = bimap
+    -- function self:__newindex(k, v)
+    --     if k and k ~= 'name' and k ~= name then
+    --         error('TypeError: Enum is not mutable, cannot create new index ' .. _prettyItem(k))
+    --     end
+    --     return rawset(self, k, v)
+    -- end
 end
 
 function Enum:__newindex(k, v)
-    if self._bimap then
-        error('TypeError: Enum is not mutable')
+
+    -- Ooof
+    print("ff", type(self), "k=".. tostring(k), "v=" .. tostring(v), _prettyItem(type(k)), _prettyItem(type(v)))
+    for mk, mv in pairs(getmetatable(self)) do
+        print("      ", mk, mv)
+    end
+    if not v or type(v) ~= 'table' or v.isInstanceOf == nil then
+        if k and k ~= 'name' and self and self._bimap then
+            error('TypeError: Enum is not mutable, cannot create new index ' .. _prettyItem(k))
+        end
     end
     return rawset(self, k, v)
 end
 
 
 function Enum:__pairs()
-    return self._bimap:__pairs()
+    --- Very, very kludgey
+    local _b = self._bimap
+    if _b then
+        return _b:__pairs()
+    else
+        return function() end
+    end
 end
 
 function Enum:hasDefault()
     local defaultWhenNil = self._defaultWhenNil
     return defaultWhenNil ~= nil
 end
+
 
 ---comment
 ---@param value V
@@ -567,6 +578,24 @@ function Enum:hasName(name)
     return self._bimap:getValueForKey(name) ~= nil
 end
 
+---comment
+---@param maybeValue V?
+function Enum:getValidated(maybeValue)
+    local gotten = nil
+    local _e = nil
+    local _default = self._defaultWhenNil
+    if maybeValue == nil and _default ~= nil then
+        gotten = _default
+    elseif self._bimap:hasValue(maybeValue) then
+        gotten = maybeValue
+    else
+        _e = string.format(
+            "TypeError: cannot cast from %s to %s",
+            _prettyItem(maybeValue), self.name
+        )
+    end
+    return gotten,_e
+end
 enum.Enum = Enum
 
 
