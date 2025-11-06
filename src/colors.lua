@@ -1,12 +1,14 @@
 --[[ Color-based conversion, textures, and mapping.
 
 ]]
+
 local fmt_errors = require("fmt").errors
 local util = require("util")
 local class = require("lib.middleclass")
 local localmath = require("localmath")
 local typechecks = require("typechecks")
-local enum = require("structures").enum
+local structures = require("structures")
+local BiMap, enum = structures.BiMap, structures.enum
 local tern = util.functional.tern
 local lerpTable = localmath.lerpTable
 local colors = {}
@@ -38,12 +40,123 @@ colors.GREEN  = {0.0, 1.0, 0.0, 1.0}
 colors.MAGENTA = {1.0, 0.0, 1.0, 1.0}
 
 
+local E = {
+    current = nil
+}
 
---- Channel data signals to tell color conversion what to do.
-local ChannelType = enum.Enum:new('ChannelType', {
+function ENUM_BEGIN(name)
+    if ENUM_current then
+        error("EnumError: already started an enum named " .. name)
+    end
+    ENUM_current = {
+        default = nil,
+        name = name
+    }
+end
+
+---@generic E
+---@param first E
+---@return E
+function ENUM_Default(first)
+    local current = ENUM_current
+    if current == nil then
+        error("No current enum?")
+    end
+    local d = current.default
+    if d ~= nil then
+        error(string.format("Already have a default %s, but got %s", d, first))
+    end
+    current.default = first
+    return first
+end
+
+
+local Enum = {}
+local _defaults = {}
+local _bimaps = {}
+local _typesets = {}
+local _names = {}
+
+
+local function _fmtMsg(enumName, problemType, value, typeSet)
+    local names = {}
+    for typeName, _ in pairs(typeSet) do
+        table.insert(names, typeName)
+    end
+    local typestring = table.concat(names, ", ")
+    local msg = string.format(
+        "%s: value=%s is not a member of %s, must be one of %s",
+        problemType, value, enumName, typestring
+    )
+    return msg
+end
+
+
+function Enum:getDefault()
+   return _defaults[self]
+end
+
+---@generic E
+---@param value E?
+---@return E?,string?
+function Enum:getValidated(value)
+    if value == nil then
+        return _defaults[self]
+    end
+    local typeSet = _typesets[self]
+    local bimap = _bimaps[self]
+    local problem = nil
+    if typeSet[value] == nil then
+        problem = "TypeError"
+    elseif not (bimap:hasValue(value)) then
+        problem = "ValueError"
+    end
+    if problem then
+        local msg = _fmtMsg(_names[self], problem, value, typeSet)
+        return nil,msg
+    end
+    return value
+end
+
+function ENUM_END(enumTable)
+    local done = ENUM_current
+    if done == nil then
+        error("No Enum in progress?")
+    end
+    _defaults[enumTable] = done.default
+    local b = structures.BiMap:new()
+    local typeSet = {}
+    for k ,v in pairs(enumTable) do
+        typeSet[type(v)] = true
+        b:addPair(k, v)
+    end
+    _bimaps[enumTable] = b
+    _typesets[enumTable] = typeSet
+    local mt =  {__index = Enum, __newindex= function (self, k, v)
+        local name = _names[self]
+        error(string.format("ImmutableError: cannot set %s=%s on enum %s as it is ImmutableError.",
+            name, k, v))
+    end
+    }
+
+    setmetatable(enumTable, mt)
+    ENUM_current = nil
+    return enumTable
+end
+
+-- Sets up state for ENUM_Default below.
+ENUM_BEGIN('ChannelType')
+
+-- Channel data signals to tell color conversion what to do.
+---@enum (key) ChannelType
+local ChannelType = {
     BYTE = 'byte',
-    NORM = enum.Default('norm')
-})
+    NORM = ENUM_Default('norm')
+}
+
+ENUM_END(ChannelType)
+
+
 colors.ChannelType = ChannelType
 
 
@@ -56,10 +169,10 @@ colors.ChannelType = ChannelType
 ---    - Length 4 is returned as-is
 --- All of the values produce an error.
 ---@param colorRaw table<integer, number>|number
----@param fromType "byte"|"norm"?
+---@param fromType ChannelType?
 ---@return table<integer, number>
 function colors.asNorm(colorRaw, fromType)
-    local ft, err = ChannelType:getValidated(fromType)
+    local ft, err = Enum.getValidated(ChannelType,fromType)
     if err then error(err) end
     -- if problem then
     --     error(string.format("%s: fromType=%s (not one of 'norm' or 'bytes')", problem, fromType))
@@ -83,7 +196,7 @@ function colors.asNorm(colorRaw, fromType)
         local scaleBy = 255.0
         -- TODO: The OOP library (middleclass) and VS Code hate each other
         -- ; -; y tho? y? Please, don't make me use Teal or other compile-my-compiler-in-yet-another-compiler-ity?
-        if fromType == ChannelType.NORM then
+        if ft == ChannelType.NORM then
             maxChannel = 1.0
             scaleBy = 1.0
         end
@@ -144,7 +257,6 @@ colors.checkers = {
     NOT_FOUND = colors.makeCheckers(colors.NOT_FOUND_COLORS),
     ALPHA = colors.makeCheckers(colors.ALPHA_GRAY_COLORS)
 }
-
 
 
 --- Map a normalized float value to a color gradient.

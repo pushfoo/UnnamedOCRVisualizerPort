@@ -1,0 +1,26 @@
+name: Unit tests
+on: [ push, pull_request ]
+
+jobs:
+    build:
+        name: Unit tests
+        strategy:
+            matrix:
+                os: [ubuntu-latest]
+        runs-on: ${{ matrix.os }}
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Set up LuaJIT for unit tests
+              uses: leafo/gh-actions-lua@v12
+              with:
+                lua-version: "luajit-2.1"
+
+            - name: Install dependencies
+              run: |
+                luarocks install --local busted
+
+            - name: Run tests
+              run: |
+                busted

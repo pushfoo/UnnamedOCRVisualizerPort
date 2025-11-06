@@ -142,13 +142,15 @@ end
 
 
 --[[ Monkeypatch to make typechecks work before 12.0 is out ]]
-if love.graphics.readbackTexture == nil then
-    --- Get an ImageData object.
-    ---@param canvas love.Canvas
-    ---@return love.ImageData
-    love.graphics.readbackTexture = function(canvas)
-        ---@diagnostic disable-next-line
-        return canvas:getTexture()
+if love then
+    if love.graphics.readbackTexture == nil then
+        --- Get an ImageData object.
+        ---@param canvas love.Canvas
+        ---@return love.ImageData
+        love.graphics.readbackTexture = function(canvas)
+            ---@diagnostic disable-next-line
+            return canvas:getTexture()
+        end
     end
 end
 

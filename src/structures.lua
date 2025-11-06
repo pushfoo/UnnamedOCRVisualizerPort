@@ -453,6 +453,10 @@ if Enum.new == nil then
     ---@diagnostic disable-next-line
     end
 end
+
+structures.BiMap = BiMap
+
+
 ---comment
 ---@param name string
 ---@param elements table<string, V>
