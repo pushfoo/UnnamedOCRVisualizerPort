@@ -120,8 +120,9 @@ local asNorm = colors.asNorm
 --- Total return texture size will be twice the checkerSize.
 ---@param fgAndBg table<integer, table<integer,number>> A table of `{foreground, background}`.
 ---@param checkerSize integer? An integer number for the checker size.
+---@param filterMode "nearest"|"linear"? Sharp or blurry textures.
 ---@return love.Texture
-function colors.makeCheckers(fgAndBg, checkerSize)
+function colors.makeCheckers(fgAndBg, checkerSize, filterMode)
     checkerSize = checkerSize or 8
     local e = typechecks.err
     local problem = (
@@ -145,7 +146,7 @@ function colors.makeCheckers(fgAndBg, checkerSize)
 
     local checkerImage = util.graphics.textureFromCanvas(checkerCanvas)
     checkerImage:setWrap("repeat", "repeat")
-    checkerImage:setFilter("linear")
+    checkerImage:setFilter(filterMode or "nearest")
 
     return checkerImage
 end
