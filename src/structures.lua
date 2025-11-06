@@ -97,32 +97,6 @@ function _dmeta:__tostring()
     return self.wrapped
 end
 
-local Wrapper = class('Wrapper')
-
-function Wrapper:initialize(wrapped)
-    self.wrapped = wrapped
-end
-
-
-function Wrapper.static.isWrapped(maybeWrapped, strict)
-    if maybeWrapped == nil then
-        return false
-    elseif strict then
-        return Wrapper:isInstanceOf(maybeWrapped)
-    end
-    local _w = maybeWrapped.wrapped
-    return _w == nil
-end
-
-function Wrapper.static.unwrap(maybeWrapped)
-    local _w = nil
-    if maybeWrapped then
-       _w = maybeWrapped.wrapped
-    end
-    return _w or maybeWrapped
-end
-
-local Default = Wrapper:subclass('Default')
 
 ---@generic _K
 ---@alias K _K
@@ -141,9 +115,6 @@ enum.Default = setmetatable({}, _dmeta)
 function enum.Default.isADefault(maybe)
     return maybe and getmetatable(maybe) == _dmeta
 end
-
-local d = enum.Default("eee")
-print(d, enum.Default.isADefault(d))
 
 
 
