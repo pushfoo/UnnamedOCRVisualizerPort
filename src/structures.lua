@@ -164,6 +164,7 @@ end
 
 local BiMap = Collection:subclass('BiMap')
 
+
 function BiMap:initialize(elements)
     Collection.initialize(self)
     local keyToIndex = {}
@@ -301,12 +302,13 @@ end
 
 ---@generic K
 ---@generic V
----@param value V
----@return K?,V?
+---@param value V?
+---@return K,V|nil,nil
 function BiMap:getPairForValue(value)
     local index = self.valueToIndex[value]
     return self:_getPairForIndex(index)
 end
+
 
 function BiMap:getPairForKey(key)
     local index = self.keyToIndex[key]
@@ -390,197 +392,8 @@ function BiMap:__pairs()
     -- return it
 end
 
-
-local b = BiMap:new({a="b", c="d"})
-for k, v in pairs(b) do
-    print("bbbb", k, v)
-end
-
-
-local function _checkEnumName(k, v)
-    local problem = nil
-    local T_k = type(k)
-    if T_k ~= 'string' then
-        local _k_p = _prettyItem(k)
-        problem = string.format("TypeError: k=%s of {%s=%s} must be a string, not %s", _k_p, _k_p, v, T_k)
-    elseif #k == 0 then
-        local _k_p = _prettyItem(k)
-        problem = string.format("ValueError: k=%s of {%s=%s} cannot be empty.", _k_p, _k_p, _prettyItem(v))
-    end
-    return problem
-end
-
-
----@class Enum<V>
----@overload fun():Enum<V>
-local Enum = class('Enum')
-
-if Enum.new == nil then
-    ---comment
-    ---@param name string
-    ---@param elements table<string, V|Default<V>>
-    ---@return Enum<V>
-    function Enum:new(name, elements)
-    ---@diagnostic disable-next-line
-    end
-end
-
 structures.BiMap = BiMap
 
-
----comment
----@param name string
----@param elements table<string, V>
-function Enum:initialize(name, elements)
-    local bimap = BiMap:new()
-    local _default = nil
-
-    local function _addValue(k, v)
-        local old = nil
-        old = bimap:getPairForKey(v)
-        if old then
-            error(string.format(
-                "DuplicateName: Enum %s already has name %s in %s",
-                name, _prettyItem(k), _prettyPair(old)
-            ))
-        end
-        old = bimap:getPairForValue(k)
-        if old then
-            error(string.format(
-                "DuplicateValue: Enum %s already has v=%s in %s",
-                --- V might be a table (in theory) so let's keep it simple?
-                name, v, _prettyPair(old)
-            ))
-        end
-        bimap:addPair(k, v)
-    end
-
-    local Default = enum.Default
-
-    ---Returns a default
-    --- @param k string
-    --- @param maybeDefault V|Default<V>
-    --- @return V?,string?
-    local function handleDefaults(k, maybeDefault)
-        local _w = nil
-        local _e = nil
-        if Default.isADefault(maybeDefault) then
-            _w = maybeDefault.wrapped
-            if _default == nil then
-               _default = _w
-            else
-                _e = string.format(
-                    "DefaultConflict: value in %s despite prior default in %s",
-                    _prettyPair({k, _w}), _prettyPair({bimap:getPairForValue(_default)})
-                )
-            end
-        else
-            _w = maybeDefault
-        end
-        return _w, _e
-    end
-
-    for k, v in pairs(elements) do
-        local _e = _checkEnumName(k, v)
-        if _e then error(_e) end
-        if type(k) ~= 'string' then
-            error(string.format(
-                "TypeError: key in %s=%s is not a string",
-                k, v
-            ))
-        end
-        local unwrapped, _errorMessage  handleDefaults(k, v)
-        if _errorMessage then error(_errorMessage) end
-        _addValue(k, unwrapped)
-    end
-    self.name = name
-    self._defaultWhenNil = _default
-    self._bimap = bimap
-    -- function self:__newindex(k, v)
-    --     if k and k ~= 'name' and k ~= name then
-    --         error('TypeError: Enum is not mutable, cannot create new index ' .. _prettyItem(k))
-    --     end
-    --     return rawset(self, k, v)
-    -- end
-end
-
-function Enum:__newindex(k, v)
-
-    -- Ooof
-    print("ff", type(self), "k=".. tostring(k), "v=" .. tostring(v), _prettyItem(type(k)), _prettyItem(type(v)))
-    for mk, mv in pairs(getmetatable(self)) do
-        print("      ", mk, mv)
-    end
-    if not v or type(v) ~= 'table' or v.isInstanceOf == nil then
-        if k and k ~= 'name' and self and self._bimap then
-            error('TypeError: Enum is not mutable, cannot create new index ' .. _prettyItem(k))
-        end
-    end
-    return rawset(self, k, v)
-end
-
-
-function Enum:__pairs()
-    --- Very, very kludgey
-    local _b = self._bimap
-    if _b then
-        return _b:__pairs()
-    else
-        return function() end
-    end
-end
-
-function Enum:hasDefault()
-    local defaultWhenNil = self._defaultWhenNil
-    return defaultWhenNil ~= nil
-end
-
-
----comment
----@param value V
----@return string?
-function Enum:getNameForValue(value)
-    local key = nil
-    if value == nil then
-        value = self._defaultWhenNil
-    end
-    if value ~= nil then
-        key = self._bimap:getKeyForValue(value)
-    end
-    return key
-end
-
-function Enum:getValueForName(name)
-    return self._bimap:getValueForKey(name)
-end
-
-function Enum:hasValue(value)
-    return self._bimap:getKeyForValue(value) ~= nil
-end
-
-function Enum:hasName(name)
-    return self._bimap:getValueForKey(name) ~= nil
-end
-
----comment
----@param maybeValue V?
-function Enum:getValidated(maybeValue)
-    local gotten = nil
-    local _e = nil
-    local _default = self._defaultWhenNil
-    if maybeValue == nil and _default ~= nil then
-        gotten = _default
-    elseif self._bimap:hasValue(maybeValue) then
-        gotten = maybeValue
-    else
-        _e = string.format(
-            "TypeError: cannot cast from %s to %s",
-            _prettyItem(maybeValue), self.name
-        )
-    end
-    return gotten,_e
-end
-enum.Enum = Enum
 
 
 
