@@ -139,7 +139,7 @@ end
 
 ---A bidirectional K <-> V map.
 local BiMap = Collection:subclass('BiMap')
-
+ERR_TEMPLATES.BIMAP_MEMBER_CONFLICT = 'ConflictError: BiMap has a member named %s'
 
 function BiMap:initialize(elements)
     Collection.initialize(self)
@@ -159,6 +159,11 @@ function BiMap:initialize(elements)
     local function _addTo(k, v)
         if k == nil and v == nil then
             return
+        end
+        if BiMap[k] ~= nil then
+            error(string.format(
+                ERR_TEMPLATES.BIMAP_MEMBER_CONFLICT, tostring(k))
+            )
         end
         local oldKeyIndex = keyToIndex[v]
         local oldValueIndex = keyToIndex[k]
@@ -224,6 +229,9 @@ function BiMap:insert(kVTable)
     self._addTo(kVTable[1], kVTable[2])
 end
 
+function BiMap:__index(key)
+    return self:getValueForKey(key)
+end
 
 ---Internal helper.
 ---@param index integer

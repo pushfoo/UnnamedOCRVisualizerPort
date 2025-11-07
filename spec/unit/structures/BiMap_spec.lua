@@ -68,5 +68,32 @@ describe("BiMap", function()
             doBadWith({1,2,3})
             doBadWith({1,2,3,4,5})
         end)
+        describe('It rejects keys with names identical to BiMaps member names', function()
+            for k, v in pairs(BiMap) do
+                it('rejects name ' .. tostring(k), function()
+                    local b = BiMap:new()
+
+                    assert.has_error(
+                        function()
+                            b:insert({k, 'should reject this'})
+                        end,
+                        string.format(structures.ERR_TEMPLATES.BIMAP_MEMBER_CONFLICT, tostring(k))
+                    )
+                end)
+            end
+        end)
+
+        describe('__index()', function()
+            it('bimap[nameString]', function()
+                local b = BiMap:new()
+                b:insert({'a', 1})
+                assert.True(b['a'] == 1)
+            end)
+            it('bimap.NAME_HERE', function()
+                local b = BiMap:new()
+                b:insert({'NAME_HERE', 'value'})
+                assert.True(b.NAME_HERE == 'value')
+            end)
+        end)
     end)
 end)
