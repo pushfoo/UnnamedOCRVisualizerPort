@@ -6,7 +6,14 @@
 ]]
 local class = require "lib.middleclass"
 
----Try to ez pretty prent a single item (hanldes tables poorly)
+local structures = {}
+local ERR_TEMPLATES = {}
+structures.ERR_TEMPLATES = ERR_TEMPLATES
+
+local pretty = {}
+structures.pretty = pretty
+
+---Try to ez pretty prent a single item (handles tables poorly)
 ---@param v any value
 ---@return string
 local function _prettyItem(v)
@@ -19,11 +26,14 @@ local function _prettyItem(v)
     end
     return tostring(v)
 end
+pretty.item = _prettyItem
 
-
-local function _prettyPair(old)
-    local kP = _prettyItem(old[1])
-    local _v = old[2]
+---An array table of {k,v} format.
+---@param pair table
+---@return string
+local function _prettyPair(pair)
+    local kP = _prettyItem(pair[1])
+    local _v = pair[2]
     local vP = nil
     if type(_v) == 'table' then
         vP = tostring(vP)
@@ -33,9 +43,7 @@ local function _prettyPair(old)
     local f = string.format("{%s=%s}", kP, vP)
     return f
 end
-
-
-local structures = {}
+pretty.pair = _prettyPair
 
 --- Q: is this better for struct-likes with defaults?
 ---
@@ -85,38 +93,6 @@ function _mt:__call(t, mt)
     return created
 end
 
-local enum = {}
-structures.enum = enum
-
-local _dmeta = {}
-function _dmeta:__call(value)
-    return setmetatable({wrapped=value}, _dmeta)
-end
-
-function _dmeta:__tostring()
-    return self.wrapped
-end
-
-
----@generic _K
----@alias K _K
-
----@generic _V
----@alias V _V
-
---- @class Default<V>
---- @field wrapped V
-enum.Default = setmetatable({}, _dmeta)
-
-
---- True if this is an object with a default.
----@param maybe any
----@return boolean
-function enum.Default.isADefault(maybe)
-    return maybe and getmetatable(maybe) == _dmeta
-end
-
-
 
 local Collection = class('Collection')
 structures.Collection = Collection
@@ -161,7 +137,7 @@ function Collection:concat(sep)
 end
 
 
-
+---A bidirectional K <-> V map.
 local BiMap = Collection:subclass('BiMap')
 
 
@@ -170,7 +146,7 @@ function BiMap:initialize(elements)
     local keyToIndex = {}
     local valueToIndex = {}
     local insertionOrder = self._items
-    print("sert", insertionOrder)
+
     self.keyToIndex = keyToIndex
     self.valueToIndex = valueToIndex
     local function _dupeFmt(what, k, v, oldK, oldV)
@@ -194,21 +170,19 @@ function BiMap:initialize(elements)
             error(_dupeFmt('key', k, v, k, oldV))
         end
         local asPair = {k, v}
-        print("pair", _prettyPair(asPair))
-        table.insert(insertionOrder, {k, v})
+        table.insert(insertionOrder, asPair)
         local n = self.nPairs + 1
-        print("nn", k, v, n)
+
         keyToIndex[k] = n
         valueToIndex[v] = n
         self.nPairs = n
-        print(string.format("Added key %s=%s (#nPairs=%i)", k, v, self.nPairs))
+
         return true
     end
 
     self._addTo = _addTo
     if elements then
         for k, v in pairs(elements) do
-            print("itering", _prettyPair({k, v}))
             _addTo(k, v)
         end
     end
@@ -225,60 +199,31 @@ function BiMap:concat(sep)
     return table.concat(preprocessed, sep)
 end
 
-local WRONG_LENGTH_PAIR = "ValueError: pair must be length 2, but got #%s=%i"
 
----comment
----@param tableOrString table<string, V>|string
----@param maybeValue V?
----@return K?, V?, string?
-local function extractKVPair(tableOrString, maybeValue)
-    local pair = nil
-    local nArg = #arg
-    if nArg == 2 then
-        pair = arg
-    elseif nArg == 1 then
-        pair = arg[1]
-    else
-        return nil, nil, string.format(WRONG_LENGTH_PAIR, "arg", nArg)
-    end
-    local T_pair = type(pair)
-    if T_pair ~= "table" then
-        return nil, nil, "TypeError: single-argument call must be a table, not " .. T_pair
-    end
-    local nPair = #pair
-    local T_nPair = type(nPair)
-
-    if T_nPair == 'number' then
-        if nPair ~= 2 then
-            return nil, nil, string.format(WRONG_LENGTH_PAIR, "pair", nPair)
-        end
-    else
-        return nil, nil, "TypeError: expected array pair, but got named table."
-    end
-    local k = pair[1]
-    local v = pair[2]
-    return k, v, nil
-end
+ERR_TEMPLATES.BIMAP_ARG_FORMAT = 'TypeError: takes :insert(k, v) or :insert({k, v})'
 
 function BiMap:insert(...)
-    local k, v, _err = extractKVPair(arg)
-    if _err then error(_err) end
+    local src = nil
+    if #arg == 1 and type(arg) == 'table' then
+        src = arg[1]
+    elseif #arg == 2 then
+        src = arg
+    end
+    if not src or #src ~= 2 then
+        error(ERR_TEMPLATES.BIMAP_ARG_FORMAT)
+    end
+    local k, v = unpack(src)
+    if k == nil or v == nil then
+        error(ERR_TEMPLATES.BIMAP_ARG_FORMAT)
+    end
     self._addTo(k, v)
 end
 
-function BiMap:addPair(...)
-    local t = nil
-    local nArg = #arg
-    if nArg == 1 then
-        t = arg[1]
-    elseif nArg == 2 then
-        t = {arg[1], arg[2]}
-    else
-        error("TypeError: takes table<K,V> K,V, but got #arg=" .. tostring(nArg))
-    end
-    self._addTo(t[1], t[2])
-end
 
+---Internal helper.
+---@param index integer
+---@return K?
+---@return V?
 function BiMap:_getPairForIndex(index)
     local k, v = nil, nil
     local pair = nil
@@ -291,6 +236,7 @@ function BiMap:_getPairForIndex(index)
     end
     return k, v
 end
+
 
 function BiMap:getPairFor(keyOrValue)
     local index = (
