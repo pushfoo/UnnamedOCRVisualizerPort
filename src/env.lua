@@ -320,7 +320,7 @@ end
 function env.run.readBytes(cmd)
     -- TODO: Windows support :(
     local b64 = cmd .. " | base64"
-    print("b", '"' .. b64 .. '"')
+
     local bytes = nil
     local handle = io.popen(b64, "r")
     if handle then

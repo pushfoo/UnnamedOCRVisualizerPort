@@ -98,6 +98,10 @@ local Collection = class('Collection')
 structures.Collection = Collection
 
 
+---comment
+---@generic K
+---@generic V
+---@param items table<K,V>?
 function Collection:initialize(items)
     local _items = {}
     if items then
@@ -111,26 +115,38 @@ function Collection:initialize(items)
     self._items = _items
 end
 
+---Add the item to the collection.
+---@AbstractMethod
+---@generic V
+---@param value V
 function Collection:insert(value)
     error("AbstractMethod: Collection:insert is abstract, please override it to insert value=" .. tostring(value))
 end
 
+---Wraps internal indexed storage.
+---@return integer
 function Collection:getn()
     return #(self._items)
 end
 
+---Whether the the number of items is zero.
+---@return boolean
 function Collection:isEmpty()
     local n = #(self._items)
     return n == 0
 end
 
+---@AbstractMethod
+---@generic K
+---@generic V
+---@return table<integer, table<K,V>>
 function Collection:toPlainTable()
     error("AbstractMethod: Collection:toPlainTable() is abstract, please override it to convert to a plain table.")
 end
 
 
 -- Skip copying the inner table and get a table:concat(sep) directly.
----@param sep string a separator value.
+---@param sep string? a separator value.
 ---@return string
 function Collection:concat(sep)
    return table.concat(self._items, sep)
@@ -140,6 +156,8 @@ end
 ---A bidirectional K <-> V map.
 local BiMap = Collection:subclass('BiMap')
 ERR_TEMPLATES.BIMAP_MEMBER_CONFLICT = 'ConflictError: BiMap has a member named %s'
+
+
 
 function BiMap:initialize(elements)
     Collection.initialize(self)
@@ -235,6 +253,8 @@ end
 
 ---Internal helper.
 ---@param index integer
+---@generic K
+---@generic V
 ---@return K?
 ---@return V?
 function BiMap:_getPairForIndex(index)
@@ -250,7 +270,11 @@ function BiMap:_getPairForIndex(index)
     return k, v
 end
 
-
+---comment
+---@param keyOrValue any
+---@generic K
+---@generic V
+---@return K?,V?
 function BiMap:getPairFor(keyOrValue)
     local index = (
         self.keyToIndex[keyOrValue]
@@ -268,12 +292,20 @@ function BiMap:getPairForValue(value)
     return self:_getPairForIndex(index)
 end
 
-
+---comment
+---@generic K
+---@generic V
+---@param key K
+---@return K?,V?
 function BiMap:getPairForKey(key)
     local index = self.keyToIndex[key]
     return self:_getPairForIndex(index)
 end
 
+---comment
+---@generic V
+---@param key any
+---@return V?
 function BiMap:getValueForKey(key)
     local index = self.keyToIndex[key]
     local _, value = self:_getPairForIndex(index)
@@ -364,8 +396,8 @@ local _Class = setmetatable({metaOnly = _metaOnly}, _mt)
 -- A table with support for tableName:insert, etc.
 ---@generic T
 ---@class NiceArray<T> : table<integer, T>
-NiceArray = _Class()
-
+local NiceArray = _Class()
+structures.NiceArray = NiceArray
 
 -- begin "trust me bro"
 if NiceArray.new == nil then
@@ -416,8 +448,6 @@ function NiceArray:extend(array)
         end
     end
 end
-
-structures.NiceArray = NiceArray
 
 
 

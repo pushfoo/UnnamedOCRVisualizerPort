@@ -1,7 +1,7 @@
 local util = require("util")
 local firstChar = util.firstChar
 local startsWith = util.startsWith
-
+local NiceArray = require("structures").NiceArray
 
 love.filesystem.setSymlinksEnabled(true)
 
