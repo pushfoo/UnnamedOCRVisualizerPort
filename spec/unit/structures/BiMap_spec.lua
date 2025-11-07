@@ -28,9 +28,9 @@ describe("BiMap", function()
 
         it('rejects empty args', function()
             local badV = {[1]=nil}
-            local expectedError = structures.ERR_TEMPLATES.BIMAP_TABLE_SIZE
+            local expectedError = string.format(structures.ERR_TEMPLATES.BIMAP_ARG_FORMAT, "TypeError")
             local function _doerr()
-                _newBlankBiMap():insert(badV)
+                _newBlankBiMap():insert()
             end
             assert.has_error(_doerr, expectedError)
         end)
