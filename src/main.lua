@@ -12,6 +12,7 @@ local util       = require("util")
 
 local NO_IMAGE = "(No image)"
 AppState = {
+    size={800,600},
     baseTitle = "UnnamedOCRPreview",
     noDocument = NO_IMAGE,
     zoom = 1.0,
@@ -19,7 +20,6 @@ AppState = {
     ---@diagnostic disable-next-line
     runner = tesseract.TesseractRunner:new()
 }
-
 
 
 function AppState:new(o)
@@ -32,11 +32,32 @@ function AppState:new(o)
     local newTransform = love.math.newTransform
     o.baseTransform = newTransform()
     o.currentTransform = newTransform()
-    o:setStateTitle()
+    local toSet = nil
+    if o.file then
+        print("Initialized with filename: ", o.file)
+        o.preview:loadImage(o.file)
+        toSet = o.file
+    end
+    -- Calling with nil inits the titlebar
+    o:setStateTitle(toSet)
+    if type(o.size) == 'table' then
+        o:setWindowSize(o.size)
+    end
     return o
 end
 
 
+--- Set the window size while preserving mode.
+---@param size table<integer, number>
+function AppState:setWindowSize(size)
+    local window = love.window
+    local _, _, mode = window.getMode()
+    ---@diagnostic disable-next-line
+    return window.setMode(size[1], size[2], mode)
+end
+
+
+--- Set the window's title bar decoration
 ---@param rawParts string|table<integer, string>?
 function AppState:setStateTitle(rawParts)
     rawParts = rawParts or self.noDocument
@@ -53,13 +74,15 @@ function AppState:setStateTitle(rawParts)
     love.window.setTitle(joined)
 end
 
+
+--- Attempt to load the file.
 ---@param maybeFileName string|Path?
 function AppState:loadFile(maybeFileName)
     local preview = self.preview
-    if maybeFileName == nil then
-        love.window.showFileDialog("openfile", preview.loadImageCallback)
-    elseif type(maybeFileName) == "string" then
-        preview.loadFile(maybeFileName)
+    -- if maybeFileName == nil then
+    --     love.window.showFileDialog("openfile", preview.loadImageCallback)
+    if type(maybeFileName) ~= nil then
+        preview.layers:loadFile(maybeFileName)
     end
 end
 
@@ -83,58 +106,29 @@ function love.wheelmoved(x, y)
     state.currentTransform:scale(factor)
 end
 
-function parseDim(nextPair, name)
-    local raw, i = nextPair()
-    print("ppp", raw,i)
-    local dim = tonumber(raw)
-    if dim == nil then
-        error(string.format("ParseError: failed to parse %s at index %i from '%s'",
-        name, i, tostring(raw)))
-    end
-    return dim
-end
 
-function parseSize(nextPair)
-    local width = parseDim(nextPair, 'width')
-    local height = parseDim(nextPair, 'height')
-
-    return {width, height}
-    -- love.window.setMode(width, height)
-end
 
 function love.load(args)
     local parsed = argparse.rawParseArgs(args)
-    local cur = 0
-
-    local function nextItem()
-        cur = cur + 1
-        if cur <= #parsed then
-            return parsed[cur],cur
-        else
-            return nil,nil
-        end
-    end
+    local nextItem = argparse.iteratorOverTokens(parsed)
 
     local loadFile = nil
-    local size = {
-        width = 800,
-        height = 600
-    }
     local i = 0
     while i ~= nil do
+
         local flagOrArg, iOrNil = nextItem()
-        i = iOrNil
         if iOrNil == nil or flagOrArg == nil then
             break
-        elseif flagOrArg.flag then
+        end
+        i = iOrNil
+
+        if flagOrArg.flag then
             local expanded = flagOrArg.expanded
             if util.startsWith(expanded, '--window-size') then
-                local size = parseSize(nextItem)
+                local size = argparse.parseSize(nextItem)
                 if size then
                     print("Got ", expanded, size[1], size[2])
-                    local window = love.window
-                    local _, _, m = window.getMode()
-                    window.setMode(size[1], size[2], m)
+
                 end
             elseif expanded == '--version' then
                 print("0.0.1 (provisionally)")
@@ -153,11 +147,8 @@ function love.load(args)
         end
 
     end
-    ---@diagnostic disable
     local runner = tesseract.TesseractRunner:new()
-    state = AppState:new{runner=runner}
-    ---@diagnostic enable
-    state:loadFile()
+    state = AppState:new{runner=runner, file=loadFile}
 end
 
 function love.draw()

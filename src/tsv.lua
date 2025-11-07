@@ -5,8 +5,6 @@ IMPORTANT: NOT feature complete, see other implementations for that!
 
 local structures = require("structures")
 local NiceArray = structures.NiceArray
-local util = require("util")
-require("args")
 
 
 local tsv = {}

@@ -234,6 +234,18 @@ function TesseractRunner:getWords(path, languages)
     return bboxes
 end
 
+if TesseractRunner.new == nil then
+    ---Stub for LuaLS since middleclass seems to have issues.
+    ---@param o any
+    ---@return TesseractRunner
+    function TesseractRunner:new(o)
+        o = o or {}
+        ---@cast o TesseractRunner
+        return o
+    end
+end
+
 tesseract.TesseractRunner = TesseractRunner
+
 
 return tesseract
