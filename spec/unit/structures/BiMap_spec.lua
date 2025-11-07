@@ -43,7 +43,7 @@ describe("BiMap", function()
                 ),
                 function()
                     local b = BiMap:new()
-                    b:insert(value, typename)
+                    b:insert({value, typename})
                 end)
             end
         end)
