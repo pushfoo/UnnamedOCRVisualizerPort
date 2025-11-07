@@ -7,6 +7,7 @@ jobs:
         strategy:
             matrix:
                 os: [ubuntu-latest]
+
         runs-on: ${{ matrix.os }}
 
         steps:
@@ -16,6 +17,8 @@ jobs:
               uses: leafo/gh-actions-lua@v12
               with:
                 lua-version: "luajit-2.1"
+            - name: Set up luarocks
+              uses: leafo/gh-actions-luarocks@v6
 
             - name: Install dependencies
               run: |
@@ -23,4 +26,4 @@ jobs:
 
             - name: Run tests
               run: |
-                busted
+                "/home/$(whoami)/.luarocks/bin/busted"
