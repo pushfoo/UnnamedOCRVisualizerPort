@@ -188,43 +188,40 @@ function BiMap:initialize(elements)
     end
 end
 
+
 function BiMap:concat(sep)
     sep = sep or ", "
     local preprocessed = {}
     for pair in self._items do
         local k = pair[1]
         local v = pair[2]
-        table.insert(preprocessed, string.format("{%s=%v}", k, v))
+        table.insert(preprocessed, string.format("{%s, %v}", k, v))
     end
     return table.concat(preprocessed, sep)
 end
 
 
-
-ERR_TEMPLATES.BIMAP_ARG_FORMAT = '%s: must be {k, v} or {k=v}'
+ERR_TEMPLATES.BIMAP_ARG_FORMAT = '%s: must be {k, v} with #t == 2'
 local function _pairerr(errType)
     return string.format(ERR_TEMPLATES.BIMAP_ARG_FORMAT, errType)
 end
 
+
+---Insert a {k, v} pair into the bimap (MUST have #t == 2).
+---The restriction is due to ambiguity in how lua handles
+---indices for values.For example, this is 1-length table:
+---```lua
+---{[1]='#t==1'} -- Equivalent to {'#t==1'}
+---```
+---@param kVTable any
 function BiMap:insert(kVTable)
     local k, v = nil, nil
     if type(kVTable) ~= 'table' then
         error(_pairerr('TypeError'))
-    elseif #kVTable == 2 then
-        k = kVTable[1]
-        v = kVTable[2]
-    else
-        for _k, _v in pairs(kVTable) do
-            if k ~= nil or v ~= nil then
-                error(_pairerr('ValueError'))
-            else
-                k = _k
-                v = _v
-            end
-        end
+    elseif #kVTable ~= 2 then
+        error(_pairerr('ValueError'))
     end
-
-    self._addTo(k, v)
+    self._addTo(kVTable[1], kVTable[2])
 end
 
 
