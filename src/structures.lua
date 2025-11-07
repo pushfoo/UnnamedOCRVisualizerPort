@@ -282,7 +282,7 @@ end
 
 function BiMap:getKeyForValue(value)
     local index = self.valueToIndex[value]
-    local key, _ = self._getPairForIndex(index)
+    local key, _ = self:_getPairForIndex(index)
     return key
 end
 

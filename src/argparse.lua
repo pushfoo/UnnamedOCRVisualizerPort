@@ -11,59 +11,59 @@ local argparse = {}
 love.filesystem.setSymlinksEnabled(true)
 
 
-function argparse.getFlagType(argvEntry)
-    if argvEntry == nil then
-        return nil
+local function isFlag(s)
+    if string.len(s) < 2 then
+        return false
+    end
+    return (firstChar(s) == '-')
+end
+
+argparse.isFlag = isFlag
+
+---comment
+---@param s string
+---@return NiceArray<<T>>
+local function splitFlags(s)
+    local long = util.startsWith(s, '--')
+    local flags = NiceArray:new()
+    if long then
+        print("longflag", s)
+        flags:insert({
+            flag = 'long',
+            value = s:sub(2, #s),
+            expanded = s
+        })
     else
-        local length = #argvEntry
-        if length > 0 then
-            local first = firstChar(argvEntry)
-            if first ~= "-" then
-                return nil
-            elseif length == 2 then
-                return "short"
-            else
-                return "long"
-            end
+        for i = 2,#s do
+            local oneChar = s:sub(i,i)
+            flags:insert({
+                flag = 'short',
+                value = oneChar,
+                expanded  = '-' .. oneChar
+            })
         end
     end
+    return flags
 end
-local ArgParser = class('ArgState')
+argparse.splitFlags = splitFlags
 
-
-function ArgParser:initialize(...)
-    self.flags = {}
-    self.arguments = {}
-end
-
-function ArgParser:parseArgs()
-
-end
-
-
-function argparse.State:consume(n)
-    local afterN = o.current + n
-    if afterN > o.n_args then
-        error(errors.ValueError("too many entries (expected %i, but got %i): %s", {n, o.current, table.concat(o.args, ", ")}))
+local function rawParseArgs(source)
+    local items = NiceArray:new()
+    for i, v in ipairs(source) do
+        if isFlag(v) then
+            local group = splitFlags(v)
+            for _, flag in ipairs(group) do
+                items:insert(flag)
+            end
+        else
+            items:insert(v)
+        end
     end
-    o.current = afterN
+    return items
 end
+argparse.rawParseArgs = rawParseArgs
 
-
--- arssparse.error = fmt.getErrorTemplater("ParseError", "cannot parse %s from \"%s\"")
-
-
-
-
-
-local ARGS = {
-    path = {
-        help="The path to read",
-        -- parser=parseFilePath
-    }
-}
-
-local FLAGS = {
-}
 
 return argparse
+
+
