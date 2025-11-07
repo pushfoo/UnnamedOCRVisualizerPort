@@ -200,22 +200,30 @@ function BiMap:concat(sep)
 end
 
 
-ERR_TEMPLATES.BIMAP_ARG_FORMAT = 'TypeError: takes :insert(k, v) or :insert({k, v})'
 
-function BiMap:insert(...)
-    local src = nil
-    if #arg == 1 and type(arg) == 'table' then
-        src = arg[1]
-    elseif #arg == 2 then
-        src = arg
+ERR_TEMPLATES.BIMAP_ARG_FORMAT = '%s: must be {k, v} or {k=v}'
+local function _pairerr(errType)
+    return string.format(ERR_TEMPLATES.BIMAP_ARG_FORMAT, errType)
+end
+
+function BiMap:insert(kVTable)
+    local k, v = nil, nil
+    if type(kVTable) ~= 'table' then
+        error(_pairerr('TypeError'))
+    elseif #kVTable == 2 then
+        k = kVTable[1]
+        v = kVTable[2]
+    else
+        for _k, _v in pairs(kVTable) do
+            if k ~= nil or v ~= nil then
+                error(_pairerr('ValueError'))
+            else
+                k = _k
+                v = _v
+            end
+        end
     end
-    if not src or #src ~= 2 then
-        error(ERR_TEMPLATES.BIMAP_ARG_FORMAT)
-    end
-    local k, v = unpack(src)
-    if k == nil or v == nil then
-        error(ERR_TEMPLATES.BIMAP_ARG_FORMAT)
-    end
+
     self._addTo(k, v)
 end
 

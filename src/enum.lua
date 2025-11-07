@@ -52,9 +52,10 @@ local function _fmtMsg(enumName, problemType, value, typeSet)
     return msg
 end
 
-
+---@generic E
+---@return E?
 function Enum:getDefault()
-   return _defaults[self]
+    return _defaults[self]
 end
 
 
@@ -81,6 +82,9 @@ function Enum:getValidated(value)
 end
 
 function enum.close(enumTable)
+    if type(enumTable) ~= 'table' then
+        error('TypeError: closing an enum acts on the table, not the name')
+    end
     if _current == nil then
         error("No Enum in progress?")
     end
@@ -88,8 +92,13 @@ function enum.close(enumTable)
     local b = BiMap:new()
     local typeSet = {}
     for k ,v in pairs(enumTable) do
+        if k == nil then
+            error('TypeError: k=nil')
+        elseif v == nil then
+            error('TypeError: v=nil')
+        end
         typeSet[type(v)] = true
-        b:addPair(k, v)
+        b:insert({k, v})
     end
     _bimaps[enumTable] = b
     _typesets[enumTable] = typeSet

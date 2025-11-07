@@ -12,6 +12,8 @@ local tern = util.functional.tern
 local lerpTable = localmath.lerpTable
 local colors = {}
 
+local getValidated = enum.Enum.getValidated
+
 --- Convert a luminance value to a normalized RGBA colors.
 ---If no alpha value is specied, it will default to 1.0.
 ---@param value number A normalized brightness float.
@@ -67,7 +69,8 @@ colors.ChannelType = ChannelType
 ---@param fromType ChannelType?
 ---@return table<integer, number>
 function colors.asNorm(colorRaw, fromType)
-    local ft, err = enum.Enum.getValidated(ChannelType,fromType)
+    --- Temporarily detatched b/c I broke the metatable magic.
+    local ft, err = getValidated(ChannelType, fromType)
     if err then error(err) end
     -- if problem then
     --     error(string.format("%s: fromType=%s (not one of 'norm' or 'bytes')", problem, fromType))
