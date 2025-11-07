@@ -4,7 +4,7 @@ local structures = require('structures')
 
 local BiMap = require("structures").BiMap
 
-local _new = function(...) return BiMap:new(unpack(arg)) end
+local _newBlankBiMap = function() return BiMap:new() end
 
 local _types = {
     ['number'] = 1,
@@ -17,10 +17,10 @@ describe("BiMap", function()
     describe("Creation", function()
         describe('with zero arguments', function()
             it('has length zero', function()
-                assert.True(_new():getn() == 0)
+                assert.True(_newBlankBiMap():getn() == 0)
             end)
             it('isEmpty() returns true', function()
-                assert.True(_new():isEmpty())
+                assert.True(_newBlankBiMap():isEmpty())
             end)
         end)
     end)
@@ -30,7 +30,7 @@ describe("BiMap", function()
             local badV = {[1]=nil}
             local expectedError = structures.ERR_TEMPLATES.BIMAP_TABLE_SIZE
             local function _doerr()
-                _new():insert(badV)
+                _newBlankBiMap():insert(badV)
             end
             assert.has_error(_doerr, expectedError)
         end)
