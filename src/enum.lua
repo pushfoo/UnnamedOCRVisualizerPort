@@ -36,8 +36,8 @@ function enum.default(first)
     return first
 end
 
-
 local Enum = {}
+enum.Enum = Enum
 
 local function _fmtMsg(enumName, problemType, value, typeSet)
     local names = {}
@@ -81,13 +81,57 @@ function Enum:getValidated(value)
     return value
 end
 
-function enum.close(enumTable)
+---Calculate a write target and error for the given maybe-table + name.
+---@generic V
+---@param maybePackageTable table<string, any>?
+---@param writtenItemName string?
+---@return table<string,any>?,string?
+function _getDestination(maybePackageTable, writtenItemName)
+    local dest = nil
+    local err = nil
+
+    if maybePackageTable ~= nil then
+        if writtenItemName == nil then
+            err = "TypeError: name mandatory when package name provided!"
+        else
+            local T_destination = type(maybePackageTable)
+            if T_destination ~= 'table' then
+                local nameStub = ""
+                if writtenItemName ~= nil then
+                    nameStub = " for " .. writtenItemName
+                    err = string.format(maybePackageTable,
+                        "TypeError: expected package table %s, but got %s",
+                        nameStub, T_destination
+                    )
+                end
+            else
+                dest = maybePackageTable
+            end
+        end
+    end
+    return dest,err
+end
+
+
+function enum.close(enumTable, maybeDestinationModule)
     if type(enumTable) ~= 'table' then
         error('TypeError: closing an enum acts on the table, not the name')
     end
     if _current == nil then
         error("No Enum in progress?")
     end
+
+    local reportingName = _current.name
+    if _current.name == nil then
+        reportingName = "anonymous Enum"
+    else
+        reportingName = "Enum" .. reportingName
+    end
+    local dest,err = _getDestination(
+        maybeDestinationModule, reportingName)
+    if err then error(err) end
+
+    _names[enumTable] = _current.name
     _defaults[enumTable] = _current.default
     local b = BiMap:new()
     local typeSet = {}
@@ -102,18 +146,21 @@ function enum.close(enumTable)
     end
     _bimaps[enumTable] = b
     _typesets[enumTable] = typeSet
-    local mt =  {__index = Enum, __newindex= function (self, k, v)
-        local name = _names[self]
-        error(string.format(
-            "ImmutableError: cannot set %s=%s on enum %s as it is ImmutableError.",
-            name, k, v))
-    end
+    local mt = {
+        __index = Enum,
+        __newindex= function (self, k, v)
+            error(string.format(
+                "ImmutableError: cannot set %s=%s on as it is ImmutableError.",
+                reportingName, k, v))
+        end
     }
     setmetatable(enumTable, mt)
+    if dest then
+        dest[_current.name] = enumTable
+    end
     _current = nil
     return enumTable
 end
 
-enum.Enum = Enum
 
 return enum

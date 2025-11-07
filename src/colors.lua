@@ -51,11 +51,7 @@ local ChannelType = {
     NORM = enum.default('norm')
 }
 
-enum.close(ChannelType)
-
-
-colors.ChannelType = ChannelType
-
+enum.close(ChannelType, colors)
 
 
 --- Ensure a value is a normalized RGBA colors.

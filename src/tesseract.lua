@@ -42,9 +42,7 @@ local PAGE_SEGMENTATION_MODE =  {
     RAW_LINE = 13,              -- Raw line. Treat the image as a single text line, bypassing hacks that are Tesseract-specific.
 }
 
-enum.close(PAGE_SEGMENTATION_MODE)
-
-tesseract.PAGE_SEGMENTATION_MODE = PAGE_SEGMENTATION_MODE
+enum.close(PAGE_SEGMENTATION_MODE, tesseract)
 
 
 -- https://tesseract-ocr.github.io/tessdoc/#tesseract-with-lstm
@@ -56,9 +54,10 @@ local OCR_ENGINE_MODE = {
     TESSERACT_LSTM_COMBINED = 2,
     DEFAULT = enum.default(3)
 }
-enum.close(OCR_ENGINE_MODE)
 
-tesseract.OCR_ENGINE_MODE = OCR_ENGINE_MODE
+enum.close(OCR_ENGINE_MODE, tesseract)
+
+-- tesseract.OCR_ENGINE_MODE = OCR_ENGINE_MODE
 
 --- Get a raw table of languages from Tesseract.
 ---Note this calls the exectuable. It does not do any
@@ -137,9 +136,9 @@ local TESSERACT_OP_MODES = {
     TSV = "tsv", -- word bounds
     CHAR_BBOXES = "makebox" -- character bboxes
 }
-enum.close(TESSERACT_OP_MODES)
 
-tesseract.TESSERACT_OP_MODES = TESSERACT_OP_MODES
+enum.close(TESSERACT_OP_MODES, tesseract)
+
 
 ---Get either nil or the langs to use joined by +.
 ---@param langs string|table
