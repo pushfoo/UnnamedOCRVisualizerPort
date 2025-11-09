@@ -10,7 +10,11 @@ local typechecks = require("typechecks")
 local enum = require("enum")
 local tern = util.functional.tern
 local lerpTable = localmath.lerpTable
+
 local colors = {}
+
+local enums = enum.createBlockOnPackage(colors)
+
 
 local getValidated = enum.Enum.getValidated
 
@@ -41,17 +45,14 @@ colors.GREEN  = {0.0, 1.0, 0.0, 1.0}
 colors.MAGENTA = {1.0, 0.0, 1.0, 1.0}
 
 
--- Sets up state for ENUM_Default below.
-enum.begin('ChannelType')
 
 -- Channel data signals to tell color conversion what to do.
 ---@enum (key) ChannelType
-local ChannelType = {
+enums.ChannelType = {
     BYTE = 'byte',
-    NORM = enum.default('norm')
+    NORM = enum.Default:new('norm')
 }
-
-enum.close(ChannelType, colors)
+local ChannelType = enums.ChannelType
 
 
 --- Ensure a value is a normalized RGBA colors.

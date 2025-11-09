@@ -20,16 +20,17 @@ local genericReaders = tsv.genericReaders
 
 ---@package tesseract
 local tesseract = {}
+local enums = enum.createBlockOnPackage(tesseract)
 
-enum.begin('PAGE_SEGMENTATION_MODE')
+
 
 -- Converted from the output of tesseract --help-extra
 ---@enum (key) PAGE_SEGMENTATION_MODE
-local PAGE_SEGMENTATION_MODE =  {
+enums.PAGE_SEGMENTATION_MODE = {
     OSD_ONLY = 0,               --Orientation and script detection (OSD) only.
     AUTO_OSD = 1,               --Automatic page segmentation with OSD.
     AUTO_ONLY = 2,              --Automatic page segmentation, but no OSD, or OCR. (not implemented)
-    AUTO = enum.default(3),     --Fully automatic page segmentation, but no OSD. (Default)
+    AUTO = enum.Default:new(3),     --Fully automatic page segmentation, but no OSD. (Default)
     SINGLE_COLUMN = 4,          --Assume a single column of text of variable sizes.
     SINGLE_BLOCK_VERT_TEXT = 5, --Assume a single uniform block of vertically aligned text.
     SINGLE_BLOCK = 6,           --Assume a single uniform block of text.
@@ -41,21 +42,17 @@ local PAGE_SEGMENTATION_MODE =  {
     SPARSE_TEXT_OSD = 12,       --Sparse text with OSD.
     RAW_LINE = 13,              -- Raw line. Treat the image as a single text line, bypassing hacks that are Tesseract-specific.
 }
-
-enum.close(PAGE_SEGMENTATION_MODE, tesseract)
-
+local PAGE_SEGMENTATION_MODE = enums.PAGE_SEGMENTATION_MODE
 
 -- https://tesseract-ocr.github.io/tessdoc/#tesseract-with-lstm
-enum.begin('OCR_ENGINE_MODE')
 ---@enum (key) OCR_ENGINE_MODE
-local OCR_ENGINE_MODE = {
+enums.OCR_ENGINE_MODE = {
     TESSERACT_ONLY = 0,
     LSTM_ONKLY = 1,
     TESSERACT_LSTM_COMBINED = 2,
-    DEFAULT = enum.default(3)
+    DEFAULT = enum.Default:new(3)
 }
-
-enum.close(OCR_ENGINE_MODE, tesseract)
+local OCR_ENGINE_MODE = enums.OCR_ENGINE_MODE
 
 -- tesseract.OCR_ENGINE_MODE = OCR_ENGINE_MODE
 
@@ -130,14 +127,12 @@ local _processTesseractWordTSV = function(dataString)
     return words
 end
 
-enum.begin('TESSERACT_OP_MODES')
 
-local TESSERACT_OP_MODES = {
+enums.TESSERACT_OP_MODES = {
     TSV = "tsv", -- word bounds
     CHAR_BBOXES = "makebox" -- character bboxes
 }
-
-enum.close(TESSERACT_OP_MODES, tesseract)
+local TESSERACT_OP_MODES = enums.TESSERACT_OP_MODES
 
 
 ---Get either nil or the langs to use joined by +.

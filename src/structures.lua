@@ -242,6 +242,7 @@ function BiMap:insert(kVTable)
     if type(kVTable) ~= 'table' then
         error(_pairerr('TypeError'))
     elseif #kVTable ~= 2 then
+        print("bmap", table.concat(kVTable, ", "))
         error(_pairerr('ValueError'))
     end
     self._addTo(kVTable[1], kVTable[2])
@@ -312,6 +313,7 @@ function BiMap:getValueForKey(key)
     return value
 end
 
+
 function BiMap:getKeyForValue(value)
     local index = self.valueToIndex[value]
     local key, _ = self:_getPairForIndex(index)
@@ -328,6 +330,7 @@ function BiMap:has(keyOrValue)
     return false
 end
 
+
 function BiMap:_removeByIndex(index)
     local pair = table.remove(self._items, index)
     local k, v = nil, nil
@@ -339,6 +342,7 @@ function BiMap:_removeByIndex(index)
     end
     return k,v
 end
+
 
 function BiMap:removePair(k, v)
     local keyToIndex = self.keyToIndex
@@ -353,10 +357,12 @@ function BiMap:removePair(k, v)
 end
 
 
+
 function BiMap:removePairForKey(k)
     local index = self.keyToIndex[k]
     return self:_removeByIndex(index)
 end
+
 
 function BiMap:removePairForValue(v)
     local index = self.valueToIndex[v]
