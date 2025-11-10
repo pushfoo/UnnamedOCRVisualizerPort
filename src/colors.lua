@@ -1,14 +1,21 @@
 --[[ Color-based conversion, textures, and mapping.
 
 ]]
+
 local fmt_errors = require("fmt").errors
 local util = require("util")
 local class = require("lib.middleclass")
 local localmath = require("localmath")
 local typechecks = require("typechecks")
-
+local enum = require("enum")
+local tern = util.functional.tern
 local lerpTable = localmath.lerpTable
+
 local colors = {}
+
+local enums = enum.createBlockOnPackage(colors)
+
+
 
 --- Convert a luminance value to a normalized RGBA colors.
 ---If no alpha value is specied, it will default to 1.0.
@@ -36,30 +43,32 @@ colors.GREEN  = {0.0, 1.0, 0.0, 1.0}
 -- For the "missing" texture
 colors.MAGENTA = {1.0, 0.0, 1.0, 1.0}
 
---- Return nil or an error string if not "byte" or "norm"
----@param maybeByteOrNorm any
----@return string?
-local _checkChannelMode = function(maybeByteOrNorm)
-    local problemType = nil
-    local problem = nil
-    if type(maybeByteOrNorm) ~= 'string' then
-        problemType = fmt_errors.typeError
-    elseif maybeByteOrNorm ~= 'byte' and maybeByteOrNorm ~= 'norm' then
-        problemType = fmt_errors.valueError
-    end
-    if problemType then
-        problem = problemType('fromType==%s, but it must be "byte", "norm", or nil (defaults to "byte)', {tostring(maybeByteOrNorm)})
-    end
-    return problem
-end
 
---- Channel data signals to tell color conversion what to do.
+-- Channel data signals to tell color conversion what to do.
+---@enum (key) ChannelType
 local ChannelType = {
     BYTE = 'byte',
-    NORM = 'norm'
+    NORM = enum.Default('norm')
 }
-colors.ChannelType = ChannelType
+---@diagnostic disable-next-line
+enums.ChannelType = ChannelType
 
+
+--- LuaLS nonsense.
+---@diagnostic disable-next-line
+if enums.ChannelType.getValidated == nil then
+    ---@generic V
+    ---@param k string
+    ---@return V?,string?
+    rawset(ChannelType, 'getValidated', function(self, k)
+       local value = rawget(self, k)
+       local problem = nil
+       if value == nil then
+        problem = "KeyError: no key %s in this enum"
+       end
+       return value,problem
+    end)
+end
 
 --- Ensure a value is a normalized RGBA colors.
 --- Behavior depends on the value type passed:
@@ -69,17 +78,13 @@ colors.ChannelType = ChannelType
 ---    - Length 4 is returned as-is
 --- All of the values produce an error.
 ---@param colorRaw table<integer, number>|number
----@param fromType "byte"|"norm"?
+---@param fromType ChannelType?
 ---@return table<integer, number>
 function colors.asNorm(colorRaw, fromType)
-    if fromType == nil then
-        fromType = ChannelType.NORM
-    else
-        local problem = _checkChannelMode(fromType)
-        if problem then
-            error(problem)
-        end
-    end
+    --- Temporarily detatched b/c I broke the metatable magic.
+    local ft, err = enum.Enum.getValidated(ChannelType, fromType)
+    if err then error(err) end
+
     local T_colorRaw = type(colorRaw)
     local converted = nil
 
@@ -96,7 +101,9 @@ function colors.asNorm(colorRaw, fromType)
         end
         local maxChannel = 255
         local scaleBy = 255.0
-        if fromType == ChannelType.NORM then
+        -- TODO: The OOP library (middleclass) and VS Code hate each other
+        -- ; -; y tho? y? Please, don't make me use Teal or other compile-my-compiler-in-yet-another-compiler-ity?
+        if ft == ChannelType.NORM then
             maxChannel = 1.0
             scaleBy = 1.0
         end
@@ -157,7 +164,6 @@ colors.checkers = {
     NOT_FOUND = colors.makeCheckers(colors.NOT_FOUND_COLORS),
     ALPHA = colors.makeCheckers(colors.ALPHA_GRAY_COLORS)
 }
-
 
 
 --- Map a normalized float value to a color gradient.

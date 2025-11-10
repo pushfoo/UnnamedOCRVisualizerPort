@@ -1,79 +1,142 @@
-local fmt = require("fmt")
-local errors = fmt.errors
-
-local argparse = {}
+local util = require("util")
+local firstChar = util.firstChar
+local startsWith = util.startsWith
+local NiceArray = require("structures").NiceArray
 
 love.filesystem.setSymlinksEnabled(true)
 
----Compat shim aroung the env.Path type.
----@param path string|Path
----@return table<string, any>?
-argparse.file = function(path)
-    return love.filesystem.getInfo(tostring(path), {type="file"})
-end
+
+local argparse = {}
 
 
-argparse.State = {}
-
-function argparse.State:new(o)
-    o = o or {}
-    if o.args == nil then
-        o.args = {}
+---True if type(s) == 'string' of length > 2.
+---@param s any
+---@return boolean
+local function isFlag(s)
+    if string.len(s) < 2 then
+        return false
     end
-    setmetatable(o, self)
-    self.__index = self
-    if o.args == nil then
-        error(errors.valueError("args are required, but got nil"))
-    end
-    o.n_args = #(o.args)
-    o.current = o.current or 1
-    o.parsed = {
-        flags = {},
-        arguments = {}
-    }
-    return o
+    return (firstChar(s) == '-')
 end
+argparse.isFlag = isFlag
 
 
-function argparse.State:consume(n)
-    local afterN = o.current + n
-    if afterN > o.n_args then
-        error(errors.ValueError("too many entries (expected %i, but got %i): %s", {n, o.current, table.concat(o.args, ", ")}))
-    end
-    o.current = afterN
-end
-
-
--- arssparse.error = fmt.getErrorTemplater("ParseError", "cannot parse %s from \"%s\"")
-
-
-function argparse.getFlagType(argvEntry)
-    if argvEntry == nil then
-        return nil
+---Extract --long-flags and -sf into split flags.
+---
+---The flags above would be expanded into three
+---separate flags: --long-flags, -s, and -f. The
+---tables have the following values:
+---1. flag : 'long' | 'short'
+---2. value : strips left '-'
+---3. expanded: string as if it were a stand-alone flag
+---@param s string
+---@return NiceArray<table<string,string>>
+local function splitFlags(s)
+    local long = startsWith(s, '--')
+    local flags = NiceArray:new()
+    if long then
+        print("longflag", s)
+        flags:insert({
+            flag = 'long',
+            value = s:sub(2, #s),
+            expanded = s
+        })
     else
-        local length = string.len(argvEntry)
-        if length > 0 then
-            local first = string.sub(argvEntry, 1, 1)
-            if first ~= "-" then
-                return nil
-            elseif length == 2 then
-                return "short"
-            else
-                return "long"
-            end
+        for i = 2,#s do
+            local oneChar = s:sub(i,i)
+            flags:insert({
+                flag = 'short',
+                value = oneChar,
+                expanded  = '-' .. oneChar
+            })
         end
     end
+    return flags
 end
+argparse.splitFlags = splitFlags
 
 
-local ARGS = {
-    path = {
-        help="The path to read",
-        -- parser=parseFilePath
-    }
-}
+---Get an in-order series of flag and argument objects.
+---@param source table<integer,string>
+---@return NiceArray<table<string,string>|string>
+local function rawParseArgs(source)
+    local items = NiceArray:new()
+    for i, v in ipairs(source) do
+        if isFlag(v) then
+            local group = splitFlags(v)
+            for _, flag in ipairs(group) do
+                items:insert(flag)
+            end
+        else
+            items:insert(v)
+        end
+    end
+    return items
+end
+argparse.rawParseArgs = rawParseArgs
 
-local FLAGS = {
-}
+
+---Get a simplified iterator-like function over tokens.
+---The function returns either:
+---* token,integer when tokens are available
+---* nil,nil when they are exhausted
+---@param parsed table<integer,string|table<string,string>>
+---@return function
+local function iteratorOverTokens(parsed)
+    local cur = 0
+    local function nextItem()
+        cur = cur + 1
+        if cur <= #parsed then
+            return parsed[cur],cur
+        else
+            return nil,nil
+        end
+    end
+    return nextItem
+end
+argparse.iteratorOverTokens = iteratorOverTokens
+
+
+---Parse a single number from the iterator function.
+---@param nextPair function
+---@param name string?
+---@return number?,string?
+local function parseNumber(nextPair, name)
+    local raw, i = nextPair()
+    print("ppp", raw,i)
+    local err = nil
+    local dim = tonumber(raw)
+    if dim == nil then
+        local nameExpanded = " "
+        if name then
+            nameExpanded = name .. " "
+        end
+        err = string.format(
+            "ParseError: failed to parse %sat index %i from '%s'",
+            nameExpanded , i, tostring(raw)
+        )
+    end
+    return dim,err
+end
+argparse.parseNumber = parseNumber
+
+
+---Parse the next two tokens as numbers.
+---@param nextPair function
+---@return table<integer, number>?,string?
+local function parseSize(nextPair)
+    -- TODO: use pcall or xpcall for this
+    local width,errW = parseNumber(nextPair, 'width')
+    if errW then
+        return nil,errW
+    end
+    local height,errH = parseNumber(nextPair, 'height')
+    if errH then
+        return nil,errH
+    end
+    return {width, height},nil
+end
+argparse.parseSize = parseSize
+
 
 return argparse

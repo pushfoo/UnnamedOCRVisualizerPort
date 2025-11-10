@@ -7,6 +7,43 @@
 local class = require "lib.middleclass"
 
 local structures = {}
+local ERR_TEMPLATES = {}
+structures.ERR_TEMPLATES = ERR_TEMPLATES
+
+local pretty = {}
+structures.pretty = pretty
+
+---Try to ez pretty prent a single item (handles tables poorly)
+---@param v any value
+---@return string
+local function _prettyItem(v)
+    if v == nil then
+        return 'nil'
+    end
+    local T_v = type(v)
+    if T_v == 'string' then
+        return "'" .. v .. "'"
+    end
+    return tostring(v)
+end
+pretty.item = _prettyItem
+
+---An array table of {k,v} format.
+---@param pair table
+---@return string
+local function _prettyPair(pair)
+    local kP = _prettyItem(pair[1])
+    local _v = pair[2]
+    local vP = nil
+    if type(_v) == 'table' then
+        vP = tostring(vP)
+    else
+        vP = _prettyItem(vP)
+    end
+    local f = string.format("{%s=%s}", kP, vP)
+    return f
+end
+pretty.pair = _prettyPair
 
 --- Q: is this better for struct-likes with defaults?
 ---
@@ -56,6 +93,307 @@ function _mt:__call(t, mt)
     return created
 end
 
+
+local Collection = class('Collection')
+structures.Collection = Collection
+
+
+---comment
+---@generic K
+---@generic V
+---@param items table<K,V>?
+function Collection:initialize(items)
+    local _items = {}
+    if items then
+        if type(items) ~= 'table' then
+            error("TypeError: passed items must be arrays.")
+        end
+        for _, value in ipairs(items) do
+            table.insert(_items, value)
+        end
+    end
+    self._items = _items
+end
+
+---Add the item to the collection.
+---@AbstractMethod
+---@generic V
+---@param value V
+function Collection:insert(value)
+    error("AbstractMethod: Collection:insert is abstract, please override it to insert value=" .. tostring(value))
+end
+
+---Wraps internal indexed storage.
+---@return integer
+function Collection:getn()
+    return #(self._items)
+end
+
+---Whether the the number of items is zero.
+---@return boolean
+function Collection:isEmpty()
+    local n = #(self._items)
+    return n == 0
+end
+
+---@AbstractMethod
+---@generic K
+---@generic V
+---@return table<integer, table<K,V>>
+function Collection:toPlainTable()
+    error("AbstractMethod: Collection:toPlainTable() is abstract, please override it to convert to a plain table.")
+end
+
+
+-- Skip copying the inner table and get a table:concat(sep) directly.
+---@param sep string? a separator value.
+---@return string
+function Collection:concat(sep)
+   return table.concat(self._items, sep)
+end
+
+
+---A bidirectional K <-> V map.
+local BiMap = Collection:subclass('BiMap')
+ERR_TEMPLATES.BIMAP_MEMBER_CONFLICT = 'ConflictError: BiMap has a member named %s'
+
+
+
+function BiMap:initialize(elements)
+    Collection.initialize(self)
+    local keyToIndex = {}
+    local valueToIndex = {}
+    local insertionOrder = self._items
+
+    self.keyToIndex = keyToIndex
+    self.valueToIndex = valueToIndex
+    local function _dupeFmt(what, k, v, oldK, oldV)
+        return string.format(
+            "DuplicateError: %s in (%s=%s) already exists (%s=%s)",
+            what, k, v, oldK, oldV
+        )
+    end
+    self.nPairs = 0
+    local function _addTo(k, v)
+        if k == nil and v == nil then
+            return
+        end
+        if BiMap[k] ~= nil then
+            error(string.format(
+                ERR_TEMPLATES.BIMAP_MEMBER_CONFLICT, tostring(k))
+            )
+        end
+        local oldKeyIndex = keyToIndex[v]
+        local oldValueIndex = keyToIndex[k]
+        if oldKeyIndex ~= nil then
+            local oldK = insertionOrder[oldKeyIndex]
+            error(_dupeFmt('value', k, v, oldK, v))
+        elseif oldValueIndex then
+            local oldV = insertionOrder[oldValueIndex]
+            error(_dupeFmt('key', k, v, k, oldV))
+        end
+        local asPair = {k, v}
+        table.insert(insertionOrder, asPair)
+        local n = self.nPairs + 1
+
+        keyToIndex[k] = n
+        valueToIndex[v] = n
+        self.nPairs = n
+
+        return true
+    end
+
+    self._addTo = _addTo
+    if elements then
+        for k, v in pairs(elements) do
+            _addTo(k, v)
+        end
+    end
+end
+
+
+function BiMap:concat(sep)
+    sep = sep or ", "
+    local preprocessed = {}
+    for pair in self._items do
+        local k = pair[1]
+        local v = pair[2]
+        table.insert(preprocessed, string.format("{%s, %v}", k, v))
+    end
+    return table.concat(preprocessed, sep)
+end
+
+
+ERR_TEMPLATES.BIMAP_ARG_FORMAT = '%s: must be {k, v} with #t == 2'
+local function _pairerr(errType)
+    return string.format(ERR_TEMPLATES.BIMAP_ARG_FORMAT, errType)
+end
+
+
+---Insert a {k, v} pair into the bimap (MUST have #t == 2).
+---The restriction is due to ambiguity in how lua handles
+---indices for values.For example, this is 1-length table:
+---```lua
+---{[1]='#t==1'} -- Equivalent to {'#t==1'}
+---```
+---@param kVTable any
+function BiMap:insert(kVTable)
+    local k, v = nil, nil
+    if type(kVTable) ~= 'table' then
+        error(_pairerr('TypeError'))
+    elseif #kVTable ~= 2 then
+        print("bmap", table.concat(kVTable, ", "))
+        error(_pairerr('ValueError'))
+    end
+    self._addTo(kVTable[1], kVTable[2])
+end
+
+function BiMap:__index(key)
+    return self:getValueForKey(key)
+end
+
+---Internal helper.
+---@param index integer
+---@generic K
+---@generic V
+---@return K?
+---@return V?
+function BiMap:_getPairForIndex(index)
+    local k, v = nil, nil
+    local pair = nil
+    if index ~= nil then
+        pair = self._items[index]
+    end
+    if pair then
+        k = pair[1]
+        v = pair[2]
+    end
+    return k, v
+end
+
+---comment
+---@param keyOrValue any
+---@generic K
+---@generic V
+---@return K?,V?
+function BiMap:getPairFor(keyOrValue)
+    local index = (
+        self.keyToIndex[keyOrValue]
+        or self.valueToIndex[keyOrValue]
+    )
+    return self:_getPairForIndex(index)
+end
+
+---@generic K
+---@generic V
+---@param value V?
+---@return K,V|nil,nil
+function BiMap:getPairForValue(value)
+    local index = self.valueToIndex[value]
+    return self:_getPairForIndex(index)
+end
+
+---comment
+---@generic K
+---@generic V
+---@param key K
+---@return K?,V?
+function BiMap:getPairForKey(key)
+    local index = self.keyToIndex[key]
+    return self:_getPairForIndex(index)
+end
+
+---comment
+---@generic V
+---@param key any
+---@return V?
+function BiMap:getValueForKey(key)
+    local index = self.keyToIndex[key]
+    local _, value = self:_getPairForIndex(index)
+    return value
+end
+
+
+function BiMap:getKeyForValue(value)
+    local index = self.valueToIndex[value]
+    local key, _ = self:_getPairForIndex(index)
+    return key
+end
+
+
+function BiMap:has(keyOrValue)
+    if self.keyToIndex[keyOrValue] ~= nil then
+        return true
+    elseif self.nameToIndex[keyOrValue] ~= nil then
+        return true
+    end
+    return false
+end
+
+
+function BiMap:_removeByIndex(index)
+    local pair = table.remove(self._items, index)
+    local k, v = nil, nil
+    if pair then
+        k = pair[1]
+        self.keyToIndex[k] = nil
+        v = pair[2]
+        self.valueToIndex[v] = nil
+    end
+    return k,v
+end
+
+
+function BiMap:removePair(k, v)
+    local keyToIndex = self.keyToIndex
+    local valueToIndex = self.valueToIndex
+    local byKey = keyToIndex[k]
+    local byValue = valueToIndex[v]
+    if byKey ~= nil and byKey == byValue then
+        return self:_removeByIndex(byKey)
+    else
+        return nil,nil
+    end
+end
+
+
+
+function BiMap:removePairForKey(k)
+    local index = self.keyToIndex[k]
+    return self:_removeByIndex(index)
+end
+
+
+function BiMap:removePairForValue(v)
+    local index = self.valueToIndex[v]
+    return self._removeByIndex(index)
+end
+
+
+function BiMap:__pairs()
+    local t = self._items
+    local n = #t
+    local i = 0
+    return ipairs(self._items)
+    --     i = i + 1
+
+    --     if i <= n then
+    --         local pair = t[i]
+    --         local k = pair[1]
+    --         local v = pair[2]
+    --         if k ~= nil and ~k ~= v then
+    --             return k, v
+    --         end
+    --     end
+    -- end
+    -- return it
+end
+
+structures.BiMap = BiMap
+
+
+
+
 --- Too-clever class-like objects (legacy)
 ---@class _Class
 local _Class = setmetatable({metaOnly = _metaOnly}, _mt)
@@ -64,8 +402,8 @@ local _Class = setmetatable({metaOnly = _metaOnly}, _mt)
 -- A table with support for tableName:insert, etc.
 ---@generic T
 ---@class NiceArray<T> : table<integer, T>
-NiceArray = _Class()
-
+local NiceArray = _Class()
+structures.NiceArray = NiceArray
 
 -- begin "trust me bro"
 if NiceArray.new == nil then
@@ -117,49 +455,6 @@ function NiceArray:extend(array)
     end
 end
 
-structures.NiceArray = NiceArray
-
-
-local Collection = class('Collection')
-structures.Collection = Collection
-
-function Collection:initialize(items)
-    local _items = {}
-    if items then
-        if type(items) ~= 'table' then
-            error("TypeError: passed items must be arrays.")
-        end
-        for _, value in ipairs(items) do
-            table.insert(_items, value)
-        end
-    end
-    self._items = _items
-end
-
-function Collection:insert(value)
-    error("AbstractMethod: Collection:insert is abstract, please override it to insert value=" .. tostring(value))
-end
-
-function Collection:getn()
-    return #(self._items)
-end
-
-function Collection:isEmpty()
-    local n = #(self._items)
-    return n == 0
-end
-
-function Collection:toPlainTable()
-    error("AbstractMethod: Collection:toPlainTable() is abstract, please override it to convert to a plain table.")
-end
-
-
--- Skip copying the inner table and get a table:concat(sep) directly.
----@param sep string a separator value.
----@return string
-function Collection:concat(sep)
-   return table.concat(self._items, sep)
-end
 
 
 
@@ -172,13 +467,19 @@ function Set:initialize(collection)
 end
 
 function Set:has(item)
-    return self._items[item] == true
+    local items = self._items
+    for k, v in pairs(items) do
+        print("-h", item, "?", k , v)
+    end
+    local haveItem = items[item]
+    print("setask", item, haveItem)
+    return haveItem ~= nil
 end
 
 
 function Set:insert(item)
     local items = self._items
-    if not items[item] then
+    if items[item] ~= true then
         items[item] = true
         return true
     end
@@ -188,7 +489,7 @@ end
 function Set:remove(item)
     local items = self._items
     if self:has(item) then
-        items[item] = false
+        items[item] = nil
         return true
     end
     return false
@@ -197,7 +498,7 @@ end
 function Set:toPlainTable()
     local t = {}
     for item, _ in pairs(self._items) do
-        t:insert(item)
+        table.insert(t, item)
     end
     return t
 end

@@ -10,8 +10,8 @@ local util = require("util")
 local env = require("env")
 local Runner = env.Runner
 
-local structures = require("structures")
-local NiceArray = structures.NiceArray
+local NiceArray = require("structures").NiceArray
+local enum = require("enum")
 
 local tsv = require("tsv")
 local rect = require("rect")
@@ -20,13 +20,17 @@ local genericReaders = tsv.genericReaders
 
 ---@package tesseract
 local tesseract = {}
+local enums = enum.createBlockOnPackage(tesseract)
+
+
 
 -- Converted from the output of tesseract --help-extra
-tesseract.PAGE_SEGMENTATION_MODE = {
+---@enum (key) PAGE_SEGMENTATION_MODE
+local PAGE_SEGMENTATION_MODE = {
     OSD_ONLY = 0,               --Orientation and script detection (OSD) only.
     AUTO_OSD = 1,               --Automatic page segmentation with OSD.
     AUTO_ONLY = 2,              --Automatic page segmentation, but no OSD, or OCR. (not implemented)
-    AUTO = 3,                   --Fully automatic page segmentation, but no OSD. (Default)
+    AUTO = enum.Default:new(3),     --Fully automatic page segmentation, but no OSD. (Default)
     SINGLE_COLUMN = 4,          --Assume a single column of text of variable sizes.
     SINGLE_BLOCK_VERT_TEXT = 5, --Assume a single uniform block of vertically aligned text.
     SINGLE_BLOCK = 6,           --Assume a single uniform block of text.
@@ -38,15 +42,21 @@ tesseract.PAGE_SEGMENTATION_MODE = {
     SPARSE_TEXT_OSD = 12,       --Sparse text with OSD.
     RAW_LINE = 13,              -- Raw line. Treat the image as a single text line, bypassing hacks that are Tesseract-specific.
 }
-
+---@diagnostic disable-next-line
+enums.PAGE_SEGMENTATION_MODE = PAGE_SEGMENTATION_MODE
 
 -- https://tesseract-ocr.github.io/tessdoc/#tesseract-with-lstm
-tesseract.OCR_ENGINE_MODE = {
+---@enum (key) OCR_ENGINE_MODE
+local OCR_ENGINE_MODE = {
     TESSERACT_ONLY = 0,
     LSTM_ONKLY = 1,
     TESSERACT_LSTM_COMBINED = 2,
-    DEFAULT = 3
+    DEFAULT = enum.Default:new(3)
 }
+---@diagnostic disable-next-line
+enums.OCR_ENGINE_MODE = OCR_ENGINE_MODE
+
+-- tesseract.OCR_ENGINE_MODE = OCR_ENGINE_MODE
 
 --- Get a raw table of languages from Tesseract.
 ---Note this calls the exectuable. It does not do any
@@ -69,14 +79,21 @@ end
 local TesseractRunner = Runner:subclass("TesseractRunner")
 
 
-function TesseractRunner:initialize(lang, which)
+function TesseractRunner:initialize(lang, which, segMode)
     ---@diagnostic disable-next-line
     Runner.initialize(self, which or "tesseract")
     if lang == nil then
+
+        print('tee', tesseract)
         lang = tesseract.getLanguages()
     end
     self.lang = lang
-    self.page_segementation_mode = tesseract.PAGE_SEGMENTATION_MODE.AUTO
+    if segMode and segMode.uppercase then
+        segMode = segMode:uppercase()
+    end
+    local segMode = enum.Enum.getValidated(PAGE_SEGMENTATION_MODE, segMode)
+    print("initialized to segMode='" .. tostring(segMode) .. "'")
+    self.page_segementation_mode = segMode
 end
 
 -- Fast and simple psuedo-set.
@@ -112,10 +129,13 @@ local _processTesseractWordTSV = function(dataString)
     return words
 end
 
-tesseract.TESSERACT_OP_MODES = {
+
+enums.TESSERACT_OP_MODES = {
     TSV = "tsv", -- word bounds
     CHAR_BBOXES = "makebox" -- character bboxes
 }
+local TESSERACT_OP_MODES = enums.TESSERACT_OP_MODES
+
 
 ---Get either nil or the langs to use joined by +.
 ---@param langs string|table
@@ -210,6 +230,18 @@ function TesseractRunner:getWords(path, languages)
     return bboxes
 end
 
+if TesseractRunner.new == nil then
+    ---Stub for LuaLS since middleclass seems to have issues.
+    ---@param o any
+    ---@return TesseractRunner
+    function TesseractRunner:new(o)
+        o = o or {}
+        ---@cast o TesseractRunner
+        return o
+    end
+end
+
 tesseract.TesseractRunner = TesseractRunner
+
 
 return tesseract

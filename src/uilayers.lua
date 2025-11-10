@@ -373,7 +373,9 @@ function uilayers.TesseractPreview:loadImage(file)
     end
     self.filename = file
     local filenameAlone = util.lastMatch(file, "[^/]+")
-    state:setStateTitle(filenameAlone)
+    if state then
+        state:setStateTitle(filenameAlone)
+    end
     print(string.format("Got %i items", gotN))
 end
 

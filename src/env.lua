@@ -9,10 +9,17 @@ local NiceArray = require("structures").NiceArray
 local env = {}
 
 
-if love.system.getOS() == "Windows" then
-    env.DEFAULT_SEP = "\\"
+if love and love.system and love.system.getOS() == "Windows" then
+        env.DEFAULT_SEP = "\\"
 else
     env.DEFAULT_SEP = "/"
+end
+
+---Compat shim aroung the env.Path type.
+---@param path string|Path
+---@return table<string, any>?
+function env.file(path)
+    return love.filesystem.getInfo(tostring(path), {type="file"})
 end
 
 -- Design goal: try to avoid too dependening on NiceArray / etc.
@@ -310,9 +317,10 @@ end
 --- does not support it.
 ---@param cmd string
 ---@return love.Data?
-function env.run.readBytes(cmd --[[@as string]])
+function env.run.readBytes(cmd)
     -- TODO: Windows support :(
-    local b64 = tostring(cmd) .. " | base64"
+    local b64 = cmd .. " | base64"
+
     local bytes = nil
     local handle = io.popen(b64, "r")
     if handle then
@@ -411,7 +419,7 @@ end
 env.Runner = Runner
 
 --[[ Backport stub for 11.5 / some IDEs to stop complaining. ]]
-if love.window.showFileDialog == nil then
+if love and love.window and love.window.showFileDialog == nil then
     --- stub for Linux for now
     ---@param action string
     ---@param callback function
