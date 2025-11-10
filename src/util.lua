@@ -142,7 +142,7 @@ end
 
 
 --[[ Monkeypatch to make typechecks work before 12.0 is out ]]
-if love then
+if love and love.graphics then
     if love.graphics.readbackTexture == nil then
         --- Get an ImageData object.
         ---@param canvas love.Canvas

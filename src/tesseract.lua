@@ -23,14 +23,13 @@ local tesseract = {}
 local enums = enum.createBlockOnPackage(tesseract)
 
 
-
 -- Converted from the output of tesseract --help-extra
 ---@enum (key) PAGE_SEGMENTATION_MODE
 local PAGE_SEGMENTATION_MODE = {
     OSD_ONLY = 0,               --Orientation and script detection (OSD) only.
     AUTO_OSD = 1,               --Automatic page segmentation with OSD.
     AUTO_ONLY = 2,              --Automatic page segmentation, but no OSD, or OCR. (not implemented)
-    AUTO = enum.Default:new(3),     --Fully automatic page segmentation, but no OSD. (Default)
+    AUTO = enum.Default(3),     --Fully automatic page segmentation, but no OSD. (Default)
     SINGLE_COLUMN = 4,          --Assume a single column of text of variable sizes.
     SINGLE_BLOCK_VERT_TEXT = 5, --Assume a single uniform block of vertically aligned text.
     SINGLE_BLOCK = 6,           --Assume a single uniform block of text.
@@ -51,7 +50,7 @@ local OCR_ENGINE_MODE = {
     TESSERACT_ONLY = 0,
     LSTM_ONKLY = 1,
     TESSERACT_LSTM_COMBINED = 2,
-    DEFAULT = enum.Default:new(3)
+    DEFAULT = enum.Default(3)
 }
 ---@diagnostic disable-next-line
 enums.OCR_ENGINE_MODE = OCR_ENGINE_MODE
@@ -130,11 +129,11 @@ local _processTesseractWordTSV = function(dataString)
 end
 
 
-enums.TESSERACT_OP_MODES = {
+local TESSERACT_OP_MODES = {
     TSV = "tsv", -- word bounds
     CHAR_BBOXES = "makebox" -- character bboxes
 }
-local TESSERACT_OP_MODES = enums.TESSERACT_OP_MODES
+enum.TESSERACT_OP_MODES = TESSERACT_OP_MODES
 
 
 ---Get either nil or the langs to use joined by +.

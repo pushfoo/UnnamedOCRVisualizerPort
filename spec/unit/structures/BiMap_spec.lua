@@ -69,9 +69,8 @@ describe("BiMap", function()
             doBadWith({1,2,3,4,5})
         end)
         describe('It rejects keys with names identical to BiMaps member names', function()
-            local BIMAP_MEMBER_CONFLICT = ERR_TEMPLATES.BIMAP_MEMBER_CONFLICT
             for k, v in pairs(BiMap) do
-                local expectedError = string.format(BIMAP_MEMBER_CONFLICT, tostring(k))
+                local expectedError = string.format(ERR_TEMPLATES.BIMAP_MEMBER_CONFLICT, tostring(k))
                 it('rejects name ' .. tostring(k), function()
                     local b = BiMap:new()
                     assert.has_error(function()

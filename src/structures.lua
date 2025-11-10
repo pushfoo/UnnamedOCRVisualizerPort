@@ -238,11 +238,9 @@ end
 ---```
 ---@param kVTable any
 function BiMap:insert(kVTable)
-    local k, v = nil, nil
     if type(kVTable) ~= 'table' then
         error(_pairerr('TypeError'))
     elseif #kVTable ~= 2 then
-        print("bmap", table.concat(kVTable, ", "))
         error(_pairerr('ValueError'))
     end
     self._addTo(kVTable[1], kVTable[2])

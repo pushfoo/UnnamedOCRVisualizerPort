@@ -22,6 +22,10 @@ AppState = {
 }
 
 
+if love and love.filesystem then
+    love.filesystem.setSymlinksEnabled(true)
+end
+
 function AppState:new(o)
     o = structures.super(self, o)
     o.preview = uilayers.TesseractPreview:new{runner=o.runner}
@@ -109,7 +113,7 @@ end
 
 
 function love.load(args)
-    local parsed = argparse.rawParseArgs(args)
+    local parsed = argparse.expandFlagTokens(args)
     local nextItem = argparse.iteratorOverTokens(parsed)
 
     local loadFile = nil
