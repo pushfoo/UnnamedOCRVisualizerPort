@@ -47,12 +47,11 @@ Goals include:
   - [X] System filepicker to choose files
 - [ ] Character-level Tesseract mapping from the word-level (WIP)
 - [ ] Minimal UI:
-  -[ ] Mouse-based gestures
-  -[ ] Hot keys
+  - [ ] Mouse-based gestures
+  - [ ] Hot keys
 
 XML-based [ALTO][] *may* also happen, but it's not a
 priority given this is a port of an existing tool.
-
 
 [Tesseract]: https://github.com/tesseract-ocr/tesseract
 [TSV]: https://en.wikipedia.org/wiki/Tab-separated_values
