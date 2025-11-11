@@ -69,12 +69,13 @@ describe('argparse.parseNumber', function()
     end)
 end)
 
-local function packIteratorOfN(...)
+local function packIteratorOf2(a, b)
     local i = 0
+    local src = {a,b}
     local function inner()
-        if #arg then
+        if i <= 2 then
             i = i + 1
-            return table.remove(arg, 1),i
+            return src[i],i
         end
         return nil,nil
     end
@@ -87,7 +88,7 @@ describe('argparse.parseSize', function()
         {'a','2'},
         {'2', 'b'},
     }) do
-        local it = packIteratorOfN(pair[1], pair[2])
+        local it = packIteratorOf2(pair[1], pair[2])
         local s,err = parseSize(it)
         assert.Equals(s,nil)
         assert.Equals(type(err), 'string')
@@ -108,14 +109,14 @@ describe('argparse.parseSize', function()
         local wExpected = expected[1]
         local hExpected = expected[2]
         it(string.format('parses %s, %s, as %i, %i + name=nil', wRaw, hRaw, wExpected, hExpected), function()
-            local iter = packIteratorOfN(wRaw, hRaw)
+            local iter = packIteratorOf2(wRaw, hRaw)
             local first, err = parseSize(iter)
             assert.Equals(err, nil)
             assert.Equals(first[1], wExpected)
             assert.Equals(first[2], hExpected)
         end)
         it(string.format('parses %s, %s, as %i, %i + name="customSizeName"', wRaw, hRaw, wExpected, hExpected), function()
-            local iter = packIteratorOfN(wRaw, hRaw)
+            local iter = packIteratorOf2(wRaw, hRaw)
             local second, err = parseSize(iter, 'customSizeName')
             assert.Equals(err, nil)
             assert.Equals(second[1], wExpected)

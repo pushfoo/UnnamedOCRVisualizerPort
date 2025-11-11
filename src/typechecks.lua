@@ -88,6 +88,7 @@ local function invalidSizeAxis(name, dim)
         return problemFn("%s must be a number > 0, but got %s=%s", {name, name, tostring(dim)})
     end
 end
+
 typechecks.err.invalidSizeAxis = invalidSizeAxis
 
 ---Get nil or an error string fo the size dimensions given.
@@ -111,12 +112,27 @@ local function invalidSizeDimensions(...)
 end
 typechecks.err.invalidSizeDimensions = invalidSizeDimensions
 
+function typechecks.err.nonStringOrEmptyString(str)
+    local e = fmt.errors
+    local T_str = type(str)
+    local problem
+    if T_str ~= 'string' then
+        problem = e.typeError
+    else
+        problem = e.valueError
+    end
+    if problem then return problem("expected string %s ~= '', but got a %s", {str, T_str}) end
+end
+typechecks.err.TEMPLATE_NOT_ARRAY_OF_LENGTH = "expected array #%s == %i, but got a %s"
+local TEMPLATE_NOT_ARRAY_OF_LENGTH = typechecks.err.TEMPLATE_NOT_ARRAY_OF_LENGTH
+
 ---Return nil or an error string explaining how it's not an array of size n.
 ---@param name string
 ---@param arr any
 ---@param n integer
 ---@return string?
-function typechecks.err.notArrayOfLength(name, arr, n)
+function typechecks.err.notArrayOfLength(name, arr, n, template)
+
     local e = fmt.errors
     local T_arr = type(arr)
     local problem = nil
@@ -127,7 +143,7 @@ function typechecks.err.notArrayOfLength(name, arr, n)
     end
     if problem then
         return problem(
-            "expected array #%s == %i, but got a %s",
+            TEMPLATE_NOT_ARRAY_OF_LENGTH,
             {name, n, T_arr}
         )
     end
