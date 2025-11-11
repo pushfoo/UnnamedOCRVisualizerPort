@@ -26,4 +26,4 @@ jobs:
 
             - name: Run tests
               run: |
-                "/home/$(whoami)/.luarocks/bin/busted"
+                "./run_tests.sh"
