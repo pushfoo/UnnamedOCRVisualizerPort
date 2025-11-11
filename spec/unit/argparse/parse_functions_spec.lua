@@ -72,13 +72,11 @@ end)
 local function packIteratorOfN(...)
     local i = 0
     local function inner()
-        local gotten = nil
-        local gottenI = nil
         if #arg then
             i = i + 1
-            gotten = table.remove(arg, 1)
+            return table.remove(arg, 1),i
         end
-        return gotten,gottenI
+        return nil,nil
     end
     return inner
 end
