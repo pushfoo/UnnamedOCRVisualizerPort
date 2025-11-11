@@ -10,15 +10,17 @@ local argparse = {}
 ---True if type(s) == 'string' of length > 2.
 ---IMPORTANT: Treats valid negative numbers as flags, i.e. -1.
 ---@param str any
+---@param permitNumber boolean?
 ---@return boolean
-local function isFlag(str)
+local function isFlag(str, permitNumber)
+    if permitNumber == nil then permitNumber = false end
     local T_str = type(str)
     if T_str ~= 'string' then
         error(string.format('TypeError: expected a string, but got str=%s (a %s)', str, T_str))
     elseif string.len(str) < 2 then
         return false
     end
-    return (firstChar(str) == '-')
+    return (not permitNumber and firstChar(str) == '-')
 end
 argparse.isFlag = isFlag
 
@@ -141,6 +143,7 @@ local function parseSize(nextPair, name)
     return {width, height},nil
 end
 argparse.parseSize = parseSize
+
 
 
 return argparse

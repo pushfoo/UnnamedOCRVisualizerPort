@@ -102,22 +102,26 @@ describe('argparse.parseSize', function()
         {{'200', '200'}, {200,200}},
         {{'-1', '-1'}, {-1,-1}}
     }) do
+        if #pair ~= 2 then error("Bad pair length? " .. tostring(#pair)) end
         local raw = pair[1]
         local wRaw = raw[1]
         local hRaw = raw[2]
-        local wExpected = pair[2][1]
-        local hExpected = pair[2][2]
+        local expected = pair[2]
+        local wExpected = expected[1]
+        local hExpected = expected[2]
         it(string.format('parses %s, %s, as %i, %i + name=nil', wRaw, hRaw, wExpected, hExpected), function()
             local iter = packIteratorOfN(wRaw, hRaw)
-            local s, err = parseSize(iter)
-            assert.Equals(s[1], wExpected)
-            assert.Equals(s[2], hExpected)
+            local first, err = parseSize(iter)
+            assert.Equals(err, nil)
+            assert.Equals(first[1], wExpected)
+            assert.Equals(first[2], hExpected)
         end)
-        it(string.format('parses %s, %s, as %i, %i + name=customSizeName', wRaw, hRaw, wExpected, hExpected), function()
+        it(string.format('parses %s, %s, as %i, %i + name="customSizeName"', wRaw, hRaw, wExpected, hExpected), function()
             local iter = packIteratorOfN(wRaw, hRaw)
-            local s, err = parseSize(iter, 'customSizeName')
-            assert.Equals(s[1], wExpected)
-            assert.Equals(s[2], hExpected)
+            local second, err = parseSize(iter, 'customSizeName')
+            assert.Equals(err, nil)
+            assert.Equals(second[1], wExpected)
+            assert.Equals(second[2], hExpected)
         end)
     end
 end)
