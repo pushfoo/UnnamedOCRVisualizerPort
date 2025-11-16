@@ -1,6 +1,7 @@
-local filename, lang, page_segementation_mode, tesseract = ...
+local filename, lang, page_segementation_mode, which = ...
 
-require("tesseract")
+local TesseractRunner = require("runners.tesseract").TesseractRunner
+
 local function report_state(s)
     love.thread.getChannel("bg"):push(s)
 end

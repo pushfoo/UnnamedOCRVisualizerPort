@@ -4,7 +4,7 @@ monkeypatches.applyPatches()
 
 local argparse = require("argparse")
 local structures = require("structures")
-local tesseract  = require("tesseract")
+local tesseract  = require("runners.tesseract")
 local uilayers   = require("uilayers")
 local typechecks = require("typechecks")
 local colors     = require("colors")

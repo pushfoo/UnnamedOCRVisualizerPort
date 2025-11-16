@@ -6,17 +6,15 @@ See the following to learn more:
 - the comments below
 ]]
 require("fmt")
+local NiceArray = require("structures").NiceArray
 local util = require("util")
 local env = require("env")
-local Runner = env.Runner
-
-local NiceArray = require("structures").NiceArray
 local enum = require("enum")
 
-local tsv = require("tsv")
-local rect = require("rect")
-local Rect = rect.Rect
-local genericReaders = tsv.genericReaders
+local genericReaders = require("tsv").genericReaders
+local Rect = require("rect").Rect
+local BaseRunner = require("runners.base_runner").BaseRunner
+
 
 ---@package tesseract
 local tesseract = {}
@@ -75,15 +73,13 @@ end
 --- and may need some automation smarts around it later.
 ---@class TesseractRunner
 ---@diagnostic disable-next-line
-local TesseractRunner = Runner:subclass("TesseractRunner")
+local TesseractRunner = BaseRunner:subclass("TesseractRunner")
 
 
 function TesseractRunner:initialize(lang, which, segMode)
     ---@diagnostic disable-next-line
-    Runner.initialize(self, which or "tesseract")
+    BaseRunner.initialize(self, which or "tesseract")
     if lang == nil then
-
-        print('tee', tesseract)
         lang = tesseract.getLanguages()
     end
     self.lang = lang

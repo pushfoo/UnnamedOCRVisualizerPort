@@ -6,7 +6,7 @@ local typechecks = require("typechecks")
 
 local colors = require("colors")
 local imageconvert = require("imageconvert")
-local tesseract = require("tesseract")
+local tesseract = require("runners.tesseract")
 
 local graphics = love.graphics
 local class = require "lib.middleclass"

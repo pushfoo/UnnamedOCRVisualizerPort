@@ -24,6 +24,24 @@ function util.table.copyArray(source, dest)
     return dest
 end
 
+
+---Detatch the value for a key from the given table.
+---@generic K
+---@generic V
+---@param t table<K, V>
+---@param key K
+---@return V|nil
+function util.table.popKey(t, key)
+    if type(t) ~= table then
+        error(string.format("TypeError: t=%s (not a table)", tostring(t)))
+    end
+    local value = t[key]
+    if value ~= nil then
+        t[key] = nil
+    end
+    return value
+end
+
 --- Wrap any bare string in a table, or return a table as-is.
 ---@param tableOrString string|table
 ---@return table<integer, any>

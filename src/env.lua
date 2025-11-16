@@ -1,19 +1,12 @@
 --- Helpers for environment probing and execution.
 
-local class = require "lib.middleclass"
 local fmt = require("fmt")
 local util = require("util")
-
 local NiceArray = require("structures").NiceArray
+
 
 local env = {}
 
-
-if love and love.system and love.system.getOS() == "Windows" then
-        env.DEFAULT_SEP = "\\"
-else
-    env.DEFAULT_SEP = "/"
-end
 
 ---Compat shim aroung the env.Path type.
 ---@param path string|Path
@@ -22,185 +15,10 @@ function env.file(path)
     return love.filesystem.getInfo(tostring(path), {type="file"})
 end
 
--- Design goal: try to avoid too dependening on NiceArray / etc.
--- * This helps with decoupling this into a library for others
--- * Since we can't really subclass string, it may help perf?
-
---- A pathlib.Path-like path class.
---- IMPORTANT: Does not yet handle Windows drive letters!
----@class Path
-local Path = {
-    __index = table,
-    sep = env.DEFAULT_SEP
-}
-
-env.Path = Path
-
---- Split a raw string into a table.
----@param raw string
----@return table?
-function Path.split(raw)
-    local t = nil
-    local match = raw:gmatch("[^/]+")
-    if match then
-        t = {}
-        for part in match do table.insert(t, part) end
-    end
-    return t
-end
-
-
---- Convert to string.
----@return string
-function Path:__tostring()
-    local n = #self
-    local parts = {}
-    for i = 1,n do
-        table.insert(parts, self[i])
-    end
-    return table.concat(parts, self.sep)
-end
-
-
---- Gets a Path instance, defaulting to current directory for nil.
----@param o Path|string|table? A path as a Path, string, table, or nil.
----@return Path
-function Path:new(o)
-    o = o or "."
-    local typeO = type(o)
-    if typeO == "string" then
-        if o == "." then
-            o = env.pwd()
-        elseif o == ".." then
-            -- Pwd + strip last folder if any
-            o = env.pwd()
-            if o ~= "/" then
-                o =
-                    --[[@cast o string]]
-                    o:gsub("[^/]+/?$", "")
-            end
-        end
-        o = Path.split(o)
-    elseif getmetatable(o) == env.Path then
-        return o
-    elseif typeO ~= "table" then
-        error("TypeError: expected nil, string, or table but got " .. typeO)
-    end
-    ---@diagnostic disable-next-line
-    self.__index = self
-    ---@cast o table
-    o = setmetatable(o, Path)
-    ---@cast o Path
-    return o
-end
-
-
---- Wraps love.getUserDirectory() in an object-oriented style.
----@return Path
-function Path.getUserDirectory()
-    local userDirRaw = love.filesystem.getUserDirectory()
-    return Path:new(userDirRaw)
-end
-
-
-
---- Enable Python-style path shorthand:
-
----@usage
---- local Path = require("env").Path
---- local HERE = Path:new(".")
---- local IMAGE_PATH = HERE / "image.png"
---- @param otherString string The rest of the path to add.
-function Path:__div(otherString)
-    local t = NiceArray:new()
-    t:extend(self)
-    t:insert(otherString)
-    return Path:new{unpack(t)}
-end
-
---- Get the name of the directory or file, including any extension.
----@return string
-function Path:getName()
-    return self[#self]
-end
-
---- Get the extension, minus any initiall dotfile value in the name.
----@usage local BASH_RC = Path:getUserDirectory() / ".bashrc"
----@return string
-function Path:getExtension()
-    local name = self:getName()
-    local startIndex = 1
-    if util.firstChar(name) == "." then
-        startIndex = 2
-    end
-
-    local partsToSplit = name:sub(startIndex, #name)
-    local extParts = {}
-    local afterFirst = partsToSplit:gmatch("[^.]+")
-    afterFirst()
-    for part in afterFirst do
-        table.insert(extParts, part)
-    end
-    local extension = table.concat(extParts, ".")
-
-    return extension
-end
-
-
---- Check if this is a dotfile
----@return boolean
-function Path:isDotFile()
-    return util.firstChar(self:getName()) == "."
-end
-
---- Get the name minus any extensions.
----@return string
-function Path:getStem()
-    local name = self:getName()
-    local startIndex = 1
-    local stemParts = NiceArray:new()
-    if util.firstChar(name) == "." then
-        startIndex = 2
-        stemParts:insert(".")
-    end
-
-    local partsToSplit = name:sub(startIndex)
-    local first = partsToSplit:gmatch("[^.]+")()
-    stemParts:insert(first)
-    return --[[@as string]] stemParts:concat("")
-end
-
-
---- Get the parent directory or nil if root of file system.
----@return Path?
-function Path:getParent()
-    local n = #self
-    if n < 2 then
-        return nil
-    end
-    local parts = {}
-    for i in 1, n - 1 do
-        table.insert(parts, self[i])
-    end
-    return Path:new{unpack(parts)}
-end
-
---- Join the path with a separator, defaulting to the system slash separator.
----@param sep string? Override the system slash separator.
----@return string
-function Path:concat(sep)
-    if type(sep) ~= string then
-        error("TypeError: expected a string for sep, but got sep=" .. tostring(sep))
-    end
-    -- print("sep", string.format("\"%s\"", sep))
-    sep = sep or self.sep
-    return sep .. table.concat(self, sep)
-end
 
 local trimEmptyToNil = util.trimEmptyToNil
 
---- Get the apparent username.
----@return string?
+
 function env.whoami()
     local username = nil
     local handle = io.popen("whoami")
@@ -211,65 +29,24 @@ function env.whoami()
     return username
 end
 
---- Get the current working directory.
----@return Path?
-function env.pwd()
-    local raw = nil
-    local trimmed = nil
-    local handle = io.popen("pwd")
-    if handle then
-        raw = handle:read()
-    end
-    if raw then
-        trimmed = trimEmptyToNil(raw)
-    end
-    if trimmed then
-        return Path:new(trimmed)
-    end
-end
-
--- TODO: consider making this like iterdir?
---- List items in a directory (defaults to working dir).
---- @param directory string|Path?
---- @return table<integer, Path>?
-function env.ls(directory)
-    directory = Path:new(directory or ".")
-    local t
-    local handle = io.popen("ls " .. directory)
-    if handle then
-        t = NiceArray:new()
-        for entry in handle:lines() do
-            t:insert(directory / entry)
-        end
-    end
-    return t
-end
-
 
 local DEFAULT_VERSION_PATTERNS = {
     whole = "[%d.]+",
     digit = "[%d]+"
 }
 
+local Version = {__index = table}
 
---- Get the path for a command.
----@param cmdname string
----@return string?
-function env.which(cmdname)
-    local raw = nil
-    local handle = io.popen("which " .. cmdname)
-    if handle then
-        raw = handle:read()
-    end
-    return trimEmptyToNil(raw)
-end
+
+-- Primitives for running things in the environment.
+env.run = {}
 
 
 --- Get a version number for command.
 ---@param cmdName string
 ---@param versionPatterns table<"digit"|"whole",string>?
 ---@return table<integer,integer>?
-function env.versionFor(cmdName, versionPatterns, versionFlag)
+function env.run.versionFor(cmdName, versionPatterns, versionFlag)
     versionFlag = versionFlag or "--version"
     versionPatterns = versionPatterns or DEFAULT_VERSION_PATTERNS
 
@@ -296,8 +73,6 @@ function env.versionFor(cmdName, versionPatterns, versionFlag)
     return version
 end
 
--- Runnable things.
-env.run = {}
 
 --- Run an io.popen with cmd.
 ---@param cmd string the commmand to run.
@@ -309,6 +84,25 @@ function env.run.readString(cmd)
         stringRaw = handle:read()
     end
     return stringRaw
+end
+
+--- Get the path for a command.
+---@param cmdName string
+---@return string?
+function env.run.which(cmdName)
+    local string = env.run.readString("which " .. cmdName)
+    if string then
+        return trimEmptyToNil(string)
+    end
+end
+
+--- Get the apparent username.
+---@return string?
+function env.run.whoami()
+    local string = env.run.readString("whoami")
+    if string then
+        return trimEmptyToNil(string)
+    end
 end
 
 
@@ -386,37 +180,6 @@ function env.run.getOutputAfterNLines(cmd, skipN)
 end
 
 
----@class Runner
----@overload fun():Runner
----@field command string
----@field path Path
----@field version string|table<integer, integer>?
-local Runner = class('Runner')
-
----A generic OOP shell over a CLI command.
----@param command string A command name.
----@param path string|Path? A specific path for it.
----@param version string|table<integer,number>? The version number
-function Runner:initialize(command, path, version)
-    local e = fmt.errors
-    if type(command) ~= "string" then
-        error(e.typeError("command name must be a string"))
-    end
-    self.command = command
-    if path == nil then
-        path = env.which(command)
-    end
-    if path == nil then
-        error(e.noExecutableError("could not find a valid path for \"%s\"", {command}))
-    end
-    self.which = path
-    if version == nil then
-        version = env.versionFor(command)
-    end
-    self.version = version
-end
-
-env.Runner = Runner
 
 --[[ Backport stub for 11.5 / some IDEs to stop complaining. ]]
 if love and love.window and love.window.showFileDialog == nil then

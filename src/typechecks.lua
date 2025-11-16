@@ -18,6 +18,16 @@ function typechecks.is.Integer(number)
 end
 
 
+---Checks if the passed table is a table with the given metatable.
+---
+---@param table any
+---@param metatable table
+---@return boolean
+function typechecks.is.tableWithMeta(table, metatable)
+   return type(table) == 'table' and getmetatable(table) == metatable
+end
+
+
 typechecks.MAX_INTROSPECTION_DEPTH = 10
 --- Try to naively guess callability? DOES NOT ACCOUNT FOR LOOPY BAD STRUCTURES!
 ---@param maybeFunctionLike any
