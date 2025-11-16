@@ -10,7 +10,7 @@ IMPORTANT: forbidden from importing from typechecks
 
 ]]
 local _util = require("util")
-local _endsWith = _util.endsWidth
+local _endsWith = _util.endsWith
 local _firstChar = _util.firstChar
 local fmt = {}
 

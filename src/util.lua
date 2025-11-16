@@ -130,7 +130,7 @@ end
 ---@param target string The target to check.
 ---@param value string The value to check for at the end of the target.
 ---@return boolean - Whether the value is at the start of the target.
-function util.endsWidth(target, value)
+function util.endsWith(target, value)
     local n_goal = _len(value)
     local n_target = _len(target)
     if n_target < n_goal then
