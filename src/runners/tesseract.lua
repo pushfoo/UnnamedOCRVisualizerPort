@@ -42,6 +42,7 @@ local PAGE_SEGMENTATION_MODE = {
 ---@diagnostic disable-next-line
 enums.PAGE_SEGMENTATION_MODE = PAGE_SEGMENTATION_MODE
 
+
 -- https://tesseract-ocr.github.io/tessdoc/#tesseract-with-lstm
 ---@enum (key) OCR_ENGINE_MODE
 local OCR_ENGINE_MODE = {
@@ -53,7 +54,6 @@ local OCR_ENGINE_MODE = {
 ---@diagnostic disable-next-line
 enums.OCR_ENGINE_MODE = OCR_ENGINE_MODE
 
--- tesseract.OCR_ENGINE_MODE = OCR_ENGINE_MODE
 
 --- Get a raw table of languages from Tesseract.
 ---Note this calls the exectuable. It does not do any
@@ -75,6 +75,7 @@ end
 ---@diagnostic disable-next-line
 local TesseractRunner = BaseRunner:subclass("TesseractRunner")
 
+tesseract.TesseractRunner = TesseractRunner
 
 function TesseractRunner:initialize(lang, which, segMode)
     ---@diagnostic disable-next-line
@@ -125,11 +126,14 @@ local _processTesseractWordTSV = function(dataString)
 end
 
 
+---@enum (key) TESSERACT_OP_MODES
 local TESSERACT_OP_MODES = {
-    TSV = "tsv", -- word bounds
+    TEXT = "text",
+    TSV = enum.Default("tsv"), -- word bounds
     CHAR_BBOXES = "makebox" -- character bboxes
 }
-enum.TESSERACT_OP_MODES = TESSERACT_OP_MODES
+---@diagnostic disable-next-line
+enums.TESSERACT_OP_MODES = TESSERACT_OP_MODES
 
 
 ---Get either nil or the langs to use joined by +.
@@ -210,7 +214,7 @@ end
 ---if you wish.
 ---
 ---@param path string|Path The image file to load.
----@param languages table Override the default language list.
+---@param languages table? Override the default language list.
 function TesseractRunner:getWords(path, languages)
     local which, useLanguages = self:getExecAndLangs(languages)
     print("o", which, useLanguages)
@@ -236,7 +240,6 @@ if TesseractRunner.new == nil then
     end
 end
 
-tesseract.TesseractRunner = TesseractRunner
 
 
 return tesseract

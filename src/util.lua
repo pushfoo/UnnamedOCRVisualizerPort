@@ -13,11 +13,11 @@ util.table = {}
 ---@param dest table<integer, T>?
 ---@return table<integer, T>
 function util.table.copyArray(source, dest)
-    dest = dest or {}
-    local T_source
+    local T_source = type(source)
     if T_source ~= 'table' then
         error('TypeError: expected type(source)=="table" but got a ' .. T_source)
     end
+    dest = dest or {}
     for _, value in ipairs(source) do
         table.insert(dest, value)
     end
@@ -38,6 +38,16 @@ function util.table.popKey(t, key)
     local value = t[key]
     if value ~= nil then
         t[key] = nil
+    end
+    return value
+end
+
+local popKey = util.table.popKey
+
+function util.table.popNilOrNonEmptyString(t, key)
+    local value = popKey(t, key)
+    if value ~= nil and type(value) ~= 'string' then
+        error(string.format("TypeError: got non-string version %s", tostring(value)))
     end
     return value
 end
@@ -256,25 +266,6 @@ function util.lastMatch(rawString, matchPattern)
     end
 
     return value
-end
-
-util.external = {}
-
---- Get a FileData object for an external file via the io module.
----@param path string|Path A path to read from.
----@param mode string The mode to open in ("r" or "rb")
----@return love.FileData? - file data for the given file.
-function util.external.load_file(path, mode)
-    -- Using tostring here converts our custom Path type.
-    local file = io.open(tostring(path), mode)
-    local data = nil
-    if file then
-        local raw = file:read("*a")
-        file:close()
-        data = love.filesystem.newFileData(raw, tostring(path))
-    end
-
-    return data
 end
 
 

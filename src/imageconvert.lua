@@ -1,10 +1,10 @@
 local class = require "lib.middleclass"
 
 local fmt = require("fmt")
-local util = require("util")
-local env = require("env")
+local paths = require("env.paths")
+local Path = paths.Path
+local load_external_file = paths.load_external_file
 
-local Path = env.Path
 local ImageMagick = require("runners.imagemagick").ImageMagick
 
 local imageconvert = {}
@@ -49,7 +49,7 @@ function ImageLoader:loadImage(path)
 
     if self.native_formats[extension] then
         print("ImageLoader using native loading for " .. extension)
-        data = util.external.load_file(path, "rb")
+        data = load_external_file(path, "rb")
     elseif self.use_magic then
         print("ImageLoader using imagemagick shell wrapper")
         local raw = self.use_magic:readStdin(path)

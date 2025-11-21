@@ -17,7 +17,6 @@ function typechecks.is.Integer(number)
     return math.modf(number) == 0.0
 end
 
-
 ---Checks if the passed table is a table with the given metatable.
 ---
 ---@param table any
@@ -135,6 +134,29 @@ function typechecks.err.nonStringOrEmptyString(str)
 end
 typechecks.err.TEMPLATE_NOT_ARRAY_OF_LENGTH = "expected array #%s == %i, but got a %s"
 local TEMPLATE_NOT_ARRAY_OF_LENGTH = typechecks.err.TEMPLATE_NOT_ARRAY_OF_LENGTH
+
+typechecks.err.TEMPLATE_NOT_NON_EMPTY_STRING = "%s=%s (a %s) when it must be non-empty string"
+local TEMPLATE_NOT_NON_EMPTY_STRING = typechecks.err.TEMPLATE_NOT_NON_EMPTY_STRING
+
+---comment
+---@param name any
+---@param maybeString any
+---@return string?
+function typechecks.err.notNonEmptyString(name, maybeString)
+    local problemName = nil
+    local problem = nil
+    local T_maybeString = type(maybeString)
+    if type(maybeString) ~= "string" then
+        problemName = "TypeError"
+    elseif string.len(maybeString) then
+        problemName = "ValueError"
+    end
+    if problemName then
+        problem = string.format(TEMPLATE_NOT_NON_EMPTY_STRING, name, tostring(maybeString), T_maybeString)
+    end
+    return problem
+end
+
 
 ---Return nil or an error string explaining how it's not an array of size n.
 ---@param name string

@@ -10,6 +10,7 @@ local typechecks = require("typechecks")
 local colors     = require("colors")
 local util       = require("util")
 
+
 local NO_IMAGE = "(No image)"
 AppState = {
     size={800,600},
@@ -111,6 +112,7 @@ function love.wheelmoved(x, y)
 end
 
 
+local espeak = nil
 
 function love.load(args)
     local parsed = argparse.expandFlagTokens(args)

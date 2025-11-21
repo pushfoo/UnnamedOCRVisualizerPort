@@ -7,11 +7,11 @@ local firstChar = util.firstChar
 local NiceArray = require("structures").NiceArray
 
 
-local path = {
+local paths = {
     WIN32_SLASH = "\\",
     UNIX_SLASH = "/"
 }
-local enums = _enum.createBlockOnPackage(path)
+local enums = _enum.createBlockOnPackage(paths)
 
 
 local _os = nil
@@ -24,11 +24,24 @@ else
     end
 end
 
+
 if _os == "Windows" then
-    path.PLATFORM_SEP = path.WIN32_SLASH
+    paths.PLATFORM_SEP = paths.WIN32_SLASH
 else
-    path.PLATFORM_SEP = path.UNIX_SLASH
+    paths.PLATFORM_SEP = paths.UNIX_SLASH
 end
+
+
+local _sepToNonSepBlock = {}
+local function _getNonSep(slash)
+    local item = _sepToNonSepBlock[slash]
+    if item == nil then
+        item = string.format("[^%s]+", slash)
+        _sepToNonSepBlock[slash] = item
+    end
+    return item
+end
+
 
 local _sepToLastEltChopper = {}
 
@@ -55,10 +68,9 @@ end
 ---@class Path
 local Path = {
     __index = table,
-    sep = path.DEFAULT_SEP
+    sep = paths.DEFAULT_SEP
 }
-
-path.Path = Path
+paths.Path = Path
 
 
 --- Split a raw string into a table.
@@ -66,9 +78,9 @@ path.Path = Path
 ---@param sep string?
 ---@return table?
 local function _split(raw, sep)
-    sep = sep or path.PLATFORM_NONSEP_PATTERN
+    local pattern = _getNonSep(sep or paths.PLATFORM_SEP)
     local t = nil
-    local match = raw:gmatch(sep)
+    local match = raw:gmatch(pattern)
     if match then
         t = {}
         for part in match do
@@ -82,7 +94,7 @@ local function _readTrimmed(cmd)
     local handle = io.popen(cmd)
     local result = nil
     if handle then
-        local raw = handle:read("*a")
+        local raw = handle:read()
         if raw then
             result = trimEmptyToNil(raw)
         end
@@ -108,7 +120,7 @@ local function _getParent(pathStr, sep)
     elseif pathStr == '/' then
         result = pathStr
     else
-        local chopPattern = _getLastEltChopper(sep or path.PLATFORM_SEP)
+        local chopPattern = _getLastEltChopper(sep or paths.PLATFORM_SEP)
         result = pathStr:gsub(chopPattern, "")
     end
     return result,err
@@ -170,9 +182,31 @@ local function _resolveStringPath(str, sep)
         else
             result = _split(new, sep)
         end
+    else
+        result = _split(str, sep)
     end
+    print("r", str, result)
     return result,err
 end
+
+
+--- Get a FileData object for an external file via LuaJIT's io built-in.
+---@param path string|Path A path to read from.
+---@param mode string The mode to open in ("r" or "rb")
+---@return love.FileData? - file data for the given file.
+function paths.load_external_file(path, mode)
+    -- Using tostring here converts our custom Path type.
+    local file = io.open(tostring(path), mode)
+    local data = nil
+    if file then
+        local raw = file:read("*a")
+        file:close()
+        data = love.filesystem.newFileData(raw, tostring(path))
+    end
+
+    return data
+end
+
 
 --- Gets a Path instance, defaulting to current directory for nil.
 ---@param o Path|string|table? A path as a Path, string, table, or nil.
@@ -181,28 +215,35 @@ function Path:new(o)
     o = o or "."
     local T_o = type(o)
     local asTable = nil
-    if T_o == 'string' then
+    local needsCopy = true
+    local _mt = nil
+    if T_o == 'table' then
+        _mt = getmetatable(o)
+        if _mt == Path then
+            ---@cast o Path
+            return o
+        elseif _mt ~= NiceArray  and _mt ~= table then
+            error("TypeError: got a table, but it has a non-NiceArray, non-table metatable?")
+        end
+    elseif T_o == 'string' then
         local maybeTable, maybeErr = _resolveStringPath(o)
         if maybeErr then
             error(maybeErr)
         else
             asTable = maybeTable
-        end
-    elseif T_o == 'table' then
-        local _mt = getmetatable(o)
-        if _mt == Path then
-            return o
-        elseif _mt == NiceArray or _mt == nil then
-            asTable = copyArray(o)
+            needsCopy = false
         end
     else
         error("TypeError: expected nil, string, or table but got " .. T_o)
     end
+    if needsCopy then
+        ---@cast asTable table<integer, string>
+        asTable = copyArray(asTable)
+    end
     ---@diagnostic disable-next-line
     self.__index = self
-    ---@cast asTable table<integer, string>
-    o = setmetatable(asTable, Path)
-    return asTable
+    ---@diagnostic disable-next-line
+    return setmetatable(asTable, Path)
 end
 
 
@@ -217,6 +258,7 @@ function Path:__tostring()
     return table.concat(parts, self.sep)
 end
 
+
 --- Wraps love.getUserDirectory() in an object-oriented style.
 ---@return Path
 function Path.getUserDirectory()
@@ -224,13 +266,9 @@ function Path.getUserDirectory()
     return Path:new(userDirRaw)
 end
 
-function Path:getFileInfo(via)
 
-end
--- return love.filesystem.getInfo(tostring(path), {type="file"})
 
 --- Enable Python-style path shorthand:
-
 ---@usage
 --- local Path = require("env").Path
 --- local HERE = Path:new(".")
@@ -322,3 +360,6 @@ function Path:concat(sep)
     sep = sep or self.sep
     return sep .. table.concat(self, sep)
 end
+
+
+return paths
