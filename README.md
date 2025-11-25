@@ -45,6 +45,9 @@ Goals include:
 - [X] Word-level [Tesseract][]-style [TSV][] output
   - [X] Minimal color mapping
   - [X] System filepicker to choose files
+- [X] Optional extended format support beyond default [Love2D][] formats
+  - Requires [ImageMagick][] to be accessible via subprocess calls
+  - Permits loading `.webp`, `.avif`, `.tiff`, and other formats (depends on your ImageMagick)
 - [ ] Character-level Tesseract mapping from the word-level (WIP)
 - [ ] Minimal UI:
   - [ ] Mouse-based gestures
@@ -55,6 +58,7 @@ priority given this is a port of an existing tool.
 
 [Tesseract]: https://github.com/tesseract-ocr/tesseract
 [TSV]: https://en.wikipedia.org/wiki/Tab-separated_values
+[ImageMagick]: https://imagemagick.org/
 [ALTO]: https://en.wikipedia.org/wiki/Analyzed_Layout_and_Text_Object
 
 ## How do I use `run.sh`?
